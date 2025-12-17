@@ -1,0 +1,13 @@
+{
+  "genres": "장르",
+  "categories": "카테고리",
+  "movies": "영화",
+  "tvShows": "TV 쇼",
+  "countries": "국가",
+  "actors": "배우",
+  "releases_schedule": "개봉 일정",
+  "login": "로그인",
+  "register": "등록",
+  "home": "홈",
+  "dashboard": "대시보드"
+}

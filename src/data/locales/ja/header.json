@@ -1,0 +1,10 @@
+{
+  "genres": "ジャンル",
+  "categories": "カテゴリ",
+  "movies": "映画",
+  "tvShows": "テレビショー",
+  "countries": "国",
+  "actors": "俳優",
+  "releasesSchedule": "公開スケジュール",
+  "language": "言語"
+}

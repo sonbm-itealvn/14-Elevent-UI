@@ -1,0 +1,13 @@
+{
+  "genres": "Жанры",
+  "categories": "Категории",
+  "movies": "Фильмы",
+  "tvShows": "Телешоу",
+  "countries": "Страны",
+  "actors": "Актеры",
+  "releases_schedule": "Расписание выхода",
+  "login": "Войти",
+  "register": "Регистрация",
+  "home": "Главная",
+  "dashboard": "Панель управления"
+}

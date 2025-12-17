@@ -1,0 +1,13 @@
+{
+  "genres": "Thể loại",
+  "categories": "Danh mục",
+  "movies": "Phim",
+  "tvShows": "Phim truyền hình",
+  "countries": "Quốc gia",
+  "actors": "Diễn viên",
+  "releases_schedule": "Lịch phát hành",
+  "login": "Đăng nhập",
+  "register": "Đăng ký",
+  "home": "Trang chủ",
+  "dashboard": "Bảng điều khiển"
+}

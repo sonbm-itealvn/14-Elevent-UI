@@ -1,0 +1,24 @@
+import type { RouteRecordRaw } from "vue-router";
+import AuthLayout from "@/ui/layouts/auth/AuthLayout.vue";
+
+const AuthRoutes: RouteRecordRaw = {
+  path: "/auth",
+  component: AuthLayout,
+  meta: {
+    requiresAuth: false,
+  },
+  children: [
+    {
+        path: "login",
+        name: "Login",
+        component: () => import("@/ui/views/auth/Login.vue"),
+    },
+    {
+        path: "register",
+        name: "Register",
+        component: () => import("@/ui/views/auth/Register.vue"),
+    }
+  ],
+};
+
+export default AuthRoutes;

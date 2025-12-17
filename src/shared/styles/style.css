@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* Custom scrollbar nhỏ + không viền */
+.small-scrollbar::-webkit-scrollbar {
+  width: 4px;               /* độ rộng scrollbar */
+}
+
+.small-scrollbar::-webkit-scrollbar-track {
+  background: transparent;  /* không viền, không nền */
+}
+
+.small-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.3); /* màu thanh kéo */
+  border-radius: 4px;
+}
+
+.small-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0,0,0,0.4);
+}

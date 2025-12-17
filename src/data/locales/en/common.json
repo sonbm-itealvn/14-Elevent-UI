@@ -1,0 +1,13 @@
+{
+  "genres": "Genres",
+  "categories": "Categories",
+  "movies": "Movies",
+  "tvShows": "TV Shows",
+  "countries": "Countries",
+  "actors": "Actors",
+  "releases_schedule": "Release Schedule",
+  "login": "Login",
+  "register": "Register",
+  "home": "Home",
+  "dashboard": "Dashboard"
+}

@@ -1,0 +1,13 @@
+{
+  "genres": "Genres",
+  "categories": "Kategorien",
+  "movies": "Filme",
+  "tvShows": "Fernsehshows",
+  "countries": "Länder",
+  "actors": "Schauspieler",
+  "releases_schedule": "Veröffentlichungsplan",
+  "login": "Anmelden",
+  "register": "Registrieren",
+  "home": "Startseite",
+  "dashboard": "Instrumententafel"
+}
