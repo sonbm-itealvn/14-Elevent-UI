@@ -9,5 +9,8 @@
   "login": "Anmelden",
   "register": "Registrieren",
   "home": "Startseite",
-  "dashboard": "Instrumententafel"
+  "dashboard": "Instrumententafel",
+  "products": "Produkte",
+  "bestsellers": "Bestseller",
+  "about": "Über uns"
 }

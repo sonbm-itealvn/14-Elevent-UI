@@ -6,15 +6,13 @@ import headerConstant from '@/shared/constants/header.constant';
 </script>
 
 <template>
-  <n-layout position="absolute" :native-scrollbar="false" class="h-screen">
+  <div class="min-h-screen flex flex-col bg-white">
     <Header :items="headerConstant" />
-    <n-layout :native-scrollbar="false" position="absolute" class="h-screen">
-      <n-layout-content content-style="padding: 64px 0">
-        <RouterView />  
-      </n-layout-content>
-    </n-layout>
+    <main class="flex-1">
+      <RouterView />
+    </main>
     <Footer />
-  </n-layout>
+  </div>
 </template>
 
 <style lang="css" scoped></style>

@@ -18,6 +18,22 @@ const MainRoutes: RouteRecordRaw = {
             name: "Genres",
             component: ()=> import("@/ui/views/main/genres/Genres.vue"),
         }
+        ,
+        {
+            path: "/products",
+            name: "Products",
+            component: () => import("@/ui/views/main/products/Products.vue"),
+        },
+        {
+            path: "/best-sellers",
+            name: "BestSellers",
+            component: () => import("@/ui/views/main/best-sellers/BestSellers.vue"),
+        },
+        {
+            path: "/about",
+            name: "About",
+            component: () => import("@/ui/views/main/about/About.vue"),
+        }
     ],
 };
 

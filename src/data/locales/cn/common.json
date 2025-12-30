@@ -9,5 +9,8 @@
   "login": "登錄",
   "register": "註冊",
   "home": "首頁",
-  "dashboard": "儀表板"
+  "dashboard": "儀表板",
+  "products": "產品",
+  "bestsellers": "暢銷",
+  "about": "關於我們"
 }

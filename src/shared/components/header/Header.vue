@@ -3,10 +3,8 @@ import { computed, ref, h } from 'vue';
 import { NLayoutHeader, NSpace, NDropdown } from 'naive-ui';
 import Logo from '@/shared/components/logo/Logo.vue';
 import Button from '@/shared/components/button/Button.vue';
-import { Moon, Sun, Menu2 } from '@vicons/tabler';
+import { Moon, Sun, Menu2, Search, ShoppingCart } from '@vicons/tabler';
 import useThemeStore from '@/ui/stores/theme.store';
-import SearchBox from '@/shared/components/searchbox/SearchBox.vue';
-import Avatar from '@/shared/components/avatar/Avatar.vue';
 import HeaderMenu from './HeaderMenu.vue';
 import { isDesktop } from '@/shared/composable/useWindowResize';
 import Language from '../language/Language.vue';
@@ -25,27 +23,24 @@ const dropdownOptions = [
     key: 'menu',
     type: 'render',
     render: () =>
-      h('div', { class: 'w-[250px] py-2 pl-2' }, [
+      h('div', { class: 'w-[260px] py-2 pl-2' }, [
         h(
           'div',
           { class: 'max-h-[400px] overflow-y-auto pr-2 small-scrollbar' },
           [
-            h(SearchBox, { class: 'w-full mb-2' }),
             h(HeaderMenu, { mode: 'vertical', data: props.items ?? [] })
           ]
         )
       ])
   }
 ];
-
-
 </script>
 
 <template>
   <n-layout-header
-    class="px-3 py-2 flex justify-between items-center sticky top-0 z-10 bg-white dark:bg-neutral-900"
+    class="px-6 py-3 flex justify-between items-center sticky top-0 z-20 bg-black text-white border-b-[3px] border-[#b3000f]"
   >
-    <n-space class="flex items-center flex-nowrap!">
+    <n-space class="flex items-center flex-nowrap! gap-3">
       <n-dropdown
         v-if="!isDesktop"
         trigger="click"
@@ -54,37 +49,80 @@ const dropdownOptions = [
         :options="dropdownOptions"
         placement="bottom-end"
       >
-        <Button regular circle secondary class="flex items-center justify-center">
+        <Button class="h-11 w-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 !border-none">
           <template #icon>
             <Menu2 />
           </template>
         </Button>
       </n-dropdown>
-      <Logo class="h-10 py-1 mr-1" />
-      <SearchBox v-if="isDesktop" />
+      <Logo class="h-12" />
     </n-space>
 
-    <n-space class="hidden lg:flex" v-if="isDesktop">
+    <div class="hidden lg:flex flex-1 justify-center">
       <HeaderMenu :mode="'horizontal'" :data="props.items ?? []" />
-    </n-space>
+    </div>
 
     <n-space>
       <div class="flex items-center gap-2">
+        <Button class="h-11 w-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 !border-none">
+          <template #icon>
+            <Search />
+          </template>
+        </Button>
+        <Button class="h-11 w-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 !border-none">
+          <template #icon>
+            <ShoppingCart />
+          </template>
+        </Button>
         <Language/>
         <Button
-          type="primary"
-          
-          circle
-          secondary
+          class="h-11 w-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 !border-none"
           @click="handleThemeToggle"
-          class="flex items-center justify-center"
         >
           <template #icon>
             <component :is="theme === 'light' ? Moon : Sun" />
           </template>
         </Button>
-        <Avatar />
       </div>
     </n-space>
   </n-layout-header>
 </template>
+
+<style scoped>
+:deep(.n-menu) {
+  background: transparent;
+}
+
+:deep(.n-menu-item) {
+  --n-item-text-color: #e5e7eb;
+  --n-item-text-color-hover: #ffffff;
+  --n-item-text-color-active: #ffffff;
+  --n-item-icon-color: #e5e7eb;
+  --n-item-icon-color-active: #ffffff;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:deep(.n-menu-item-content) {
+  padding: 0 14px;
+}
+
+:deep(.n-menu-item-content)::after {
+  content: "";
+  display: block;
+  margin-top: 8px;
+  height: 2px;
+  background: transparent;
+  transition: background-color 0.2s ease;
+}
+
+:deep(.n-menu-item--selected .n-menu-item-content)::after,
+:deep(.n-menu-item-content:hover)::after {
+  background: #b3000f;
+}
+
+:deep(.n-menu-item-content:hover) {
+  color: #ffffff;
+}
+</style>

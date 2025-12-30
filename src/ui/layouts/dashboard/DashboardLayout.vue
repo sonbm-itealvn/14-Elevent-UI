@@ -8,21 +8,19 @@ import headerConstant from '@/shared/constants/header.constant';
 </script>
 
 <template>
-  <n-layout position="absolute" :native-scrollbar="false" class="h-screen">
+  <div class="min-h-screen flex flex-col bg-white">
     <Header/>
-    <n-layout has-sider position="absolute" class="h-screen">
+    <div class="flex flex-1">
       <Sidebar />
-      <n-layout :native-scrollbar="false">
-        <n-layout-content content-style="padding: 64px 24px;" >
-          <div class="flex flex-col gap-4">
-            <Breadcrumb :items="headerConstant" :is-dashboard="true" />
-            <RouterView />
-          </div>
-        </n-layout-content>
-      </n-layout>
-    </n-layout>
+      <main class="flex-1">
+        <div class="px-6 py-4 flex flex-col gap-4">
+          <Breadcrumb :items="headerConstant" :is-dashboard="true" />
+          <RouterView />
+        </div>
+      </main>
+    </div>
     <Footer />
-  </n-layout>
+  </div>
 </template>
 
 <style lang="css" scoped></style>
