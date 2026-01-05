@@ -33,6 +33,16 @@ const MainRoutes: RouteRecordRaw = {
             path: "/about",
             name: "About",
             component: () => import("@/ui/views/main/about/About.vue"),
+        },
+        {
+            path: "/contact",
+            name: "Contact",
+            component: () => import("@/ui/views/main/contact/Contact.vue"),
+        },
+        {
+            path: "/profile",
+            name: "Profile",
+            component: () => import("@/ui/views/main/profile/Profile.vue"),
         }
     ],
 };

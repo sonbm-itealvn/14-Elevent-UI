@@ -3,6 +3,7 @@ import { computed, ref, h } from 'vue';
 import { NLayoutHeader, NSpace, NDropdown } from 'naive-ui';
 import Logo from '@/shared/components/logo/Logo.vue';
 import Button from '@/shared/components/button/Button.vue';
+import Avatar from '@/shared/components/avatar/Avatar.vue';
 import { Moon, Sun, Menu2, Search, ShoppingCart } from '@vicons/tabler';
 import useThemeStore from '@/ui/stores/theme.store';
 import HeaderMenu from './HeaderMenu.vue';
@@ -83,6 +84,7 @@ const dropdownOptions = [
             <component :is="theme === 'light' ? Moon : Sun" />
           </template>
         </Button>
+        <Avatar />
       </div>
     </n-space>
   </n-layout-header>

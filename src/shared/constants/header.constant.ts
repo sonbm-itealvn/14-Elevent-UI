@@ -1,5 +1,5 @@
 import type { Header } from "@/core/models/header.model";
-import { Home, InfoCircle, ShoppingCart, Star } from "@vicons/tabler";
+import { Home, InfoCircle, ShoppingCart, Star, PhoneCall } from "@vicons/tabler";
 
 const headerConstants: Header[] = [
   {
@@ -25,6 +25,12 @@ const headerConstants: Header[] = [
     icon: InfoCircle,
     title: "GIỚI THIỆU",
     to: "/about",
+  },
+  {
+    id: "contact",
+    icon: PhoneCall,
+    title: "LIÊN HỆ",
+    to: "/contact",
   },
 ];
 
