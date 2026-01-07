@@ -19,6 +19,7 @@ const authStore = useAuthStore();
 const cartStore = useCartStore();
 const router = useRouter();
 const theme = computed(() => themeStore.getTheme);
+const isLight = computed(() => theme.value === 'light');
 const handleThemeToggle = () => themeStore.setTheme();
 const showDropdown = ref(false);
 const props = defineProps<{
@@ -60,8 +61,13 @@ const dropdownOptions = [
 </script>
 
 <template>
-  <n-layout-header
-    class="px-6 py-3 flex justify-between items-center sticky top-0 z-20 bg-black text-white border-b-[3px] border-[#b3000f]"
+<n-layout-header
+    :class="[
+      'px-6 py-3 flex justify-between items-center sticky top-0 z-20 transition-colors duration-200',
+      isLight
+        ? 'bg-white text-neutral-900 border-b border-neutral-200 shadow-sm header--light'
+        : 'bg-black text-white border-b-[3px] border-[#b3000f] header--dark'
+    ]"
   >
     <n-space class="flex items-center flex-nowrap! gap-3">
       <n-dropdown
@@ -72,7 +78,12 @@ const dropdownOptions = [
         :options="dropdownOptions"
         placement="bottom-end"
       >
-        <Button class="h-11 w-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 !border-none">
+        <Button
+          class="h-11 w-11 flex items-center justify-center rounded-full transition-colors duration-150"
+          :class="isLight
+            ? 'bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-800'
+            : 'bg-white/10 hover:bg-white/20 !border-none text-white'"
+        >
           <template #icon>
             <Menu2 />
           </template>
@@ -87,14 +98,22 @@ const dropdownOptions = [
 
     <n-space>
       <div class="flex items-center gap-2">
-        <Button class="h-11 w-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 !border-none">
+        <Button
+          class="h-11 w-11 flex items-center justify-center rounded-full transition-colors duration-150"
+          :class="isLight
+            ? 'bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-800'
+            : 'bg-white/10 hover:bg-white/25 !border-none text-white'"
+        >
           <template #icon>
             <Search />
           </template>
         </Button>
         <n-badge :value="cartStore.totalItems" :show-zero="false" :max="99">
           <Button 
-            class="h-11 w-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 !border-none relative"
+            class="h-11 w-11 flex items-center justify-center rounded-full transition-colors duration-150 relative"
+            :class="isLight
+              ? 'bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-800'
+              : 'bg-white/10 hover:bg-white/25 !border-none text-white'"
             @click="handleCartClick"
           >
             <template #icon>
@@ -104,7 +123,10 @@ const dropdownOptions = [
         </n-badge>
         <Language/>
         <Button
-          class="h-11 w-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 !border-none"
+          class="h-11 w-11 flex items-center justify-center rounded-full transition-colors duration-150"
+          :class="isLight
+            ? 'bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-800'
+            : 'bg-white/10 hover:bg-white/25 !border-none text-white'"
           @click="handleThemeToggle"
         >
           <template #icon>
@@ -119,7 +141,10 @@ const dropdownOptions = [
         />
         <NButton
           v-else
-          class="h-11 px-4 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 !border-none text-white"
+          class="h-11 px-4 flex items-center justify-center rounded-full transition-colors duration-150"
+          :class="isLight
+            ? 'bg-neutral-900 text-white hover:bg-neutral-800 border border-neutral-800'
+            : 'bg-white/10 hover:bg-white/25 !border-none text-white'"
           @click="handleLoginClick"
         >
           <template #icon>
@@ -133,6 +158,10 @@ const dropdownOptions = [
 </template>
 
 <style scoped>
+:global(.header--light .n-badge-sup) {
+  background-color: #b3000f;
+}
+
 :deep(.n-menu) {
   background: transparent;
 }
@@ -146,6 +175,14 @@ const dropdownOptions = [
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+:global(.header--light .n-menu-item) {
+  --n-item-text-color: #4b5563;
+  --n-item-text-color-hover: #111827;
+  --n-item-text-color-active: #111827;
+  --n-item-icon-color: #4b5563;
+  --n-item-icon-color-active: #111827;
 }
 
 :deep(.n-menu-item-content) {

@@ -1,25 +1,51 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { User, Mail, Phone, MapPin, Camera, DeviceFloppy, Edit } from '@vicons/tabler';
+import UserProfileService from '@/core/services/api/user-profile.service';
+import { useMessage } from 'naive-ui';
+import type { User as UserType } from '@/domain/models/user.model';
 
+const message = useMessage();
 const isEditing = ref(false);
 const isLoading = ref(false);
-
-onMounted(() => {
-  console.log('Profile component mounted');
-});
+const loadingProfile = ref(false);
 
 const userProfile = ref({
-  fullName: 'Nguyễn Văn A',
-  email: 'nguyenvana@example.com',
-  phone: '+84 123 456 789',
-  address: '123 Đường ABC, Quận XYZ, Hà Nội',
+  fullName: '',
+  email: '',
+  phone: '',
   avatar: null as string | null,
-  dateOfBirth: '1990-01-01',
-  gender: 'male',
 });
 
 const originalProfile = ref({ ...userProfile.value });
+const userData = ref<UserType | null>(null);
+
+const loadUserProfile = async () => {
+  try {
+    loadingProfile.value = true;
+    const user = await UserProfileService.getCurrentUser();
+    userData.value = user;
+    
+    // Map dữ liệu từ API vào userProfile
+    userProfile.value = {
+      fullName: user.fullName || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      avatar: user.avatar || null,
+    };
+    
+    originalProfile.value = { ...userProfile.value };
+  } catch (error: any) {
+    console.error('Error loading profile:', error);
+    message.error(error?.response?.data?.message || 'Không thể tải thông tin người dùng');
+  } finally {
+    loadingProfile.value = false;
+  }
+};
+
+onMounted(() => {
+  loadUserProfile();
+});
 
 const handleEdit = () => {
   isEditing.value = true;
@@ -34,31 +60,51 @@ const handleCancel = () => {
 const handleSave = async () => {
   isLoading.value = true;
   try {
-    // TODO: Implement save profile API call
-    // await userService.updateProfile(userProfile.value);
-    console.log('Saving profile:', userProfile.value);
+    const updateData: { fullName?: string; phone?: string } = {};
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    if (userProfile.value.fullName !== originalProfile.value.fullName) {
+      updateData.fullName = userProfile.value.fullName;
+    }
+    
+    if (userProfile.value.phone !== originalProfile.value.phone) {
+      updateData.phone = userProfile.value.phone;
+    }
+    
+    if (Object.keys(updateData).length > 0) {
+      const updatedUser = await UserProfileService.updateProfile(updateData);
+      userData.value = updatedUser;
+      message.success('Cập nhật thông tin thành công');
+    }
     
     isEditing.value = false;
     originalProfile.value = { ...userProfile.value };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error saving profile:', error);
+    message.error(error?.response?.data?.message || 'Không thể cập nhật thông tin');
   } finally {
     isLoading.value = false;
   }
 };
 
-const handleAvatarChange = (event: Event) => {
+const handleAvatarChange = async (event: Event) => {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
   if (file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      userProfile.value.avatar = e.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+    try {
+      isLoading.value = true;
+      const updatedUser = await UserProfileService.updateAvatar(file);
+      userData.value = updatedUser;
+      userProfile.value.avatar = updatedUser.avatar || null;
+      originalProfile.value.avatar = updatedUser.avatar || null;
+      message.success('Cập nhật ảnh đại diện thành công');
+    } catch (error: any) {
+      console.error('Error updating avatar:', error);
+      message.error(error?.response?.data?.message || 'Không thể cập nhật ảnh đại diện');
+    } finally {
+      isLoading.value = false;
+      // Reset input để có thể chọn lại cùng file
+      if (target) target.value = '';
+    }
   }
 };
 
@@ -101,19 +147,20 @@ const getInitials = computed(() => {
           <div class="relative mb-4">
             <div
               v-if="userProfile.avatar"
-              class="w-48 h-48 rounded-full overflow-hidden border-4 border-[#b3000f] shadow-lg"
+              class="w-48 h-48 rounded-full overflow-hidden border-4 border-[#b3000f] shadow-lg bg-white"
             >
               <img
                 :src="userProfile.avatar"
                 :alt="userProfile.fullName"
                 class="w-full h-full object-cover"
+                @error="userProfile.avatar = null"
               />
             </div>
             <div
               v-else
-              class="w-48 h-48 rounded-full bg-[#b3000f] flex items-center justify-center text-white text-5xl font-bold border-4 border-[#b3000f] shadow-lg"
+              class="w-48 h-48 rounded-full bg-neutral-100 border-4 border-[#b3000f] shadow-lg flex items-center justify-center"
             >
-              {{ getInitials }}
+              <component :is="User" class="h-24 w-24 text-neutral-400" />
             </div>
             
             <label
@@ -154,7 +201,12 @@ const getInitials = computed(() => {
             </h3>
           </div>
 
-          <form @submit.prevent="handleSave" class="space-y-6">
+          <!-- Loading State -->
+          <div v-if="loadingProfile" class="text-center py-8">
+            <p class="text-neutral-500">Đang tải thông tin...</p>
+          </div>
+
+          <form v-else @submit.prevent="handleSave" class="space-y-6">
             <!-- Full Name -->
             <div>
               <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">
@@ -215,79 +267,33 @@ const getInitials = computed(() => {
               </div>
             </div>
 
-            <!-- Address -->
-            <div>
+            <!-- Role -->
+            <div v-if="userData">
               <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">
-                Địa Chỉ
+                Vai Trò
               </label>
-              <div class="relative">
-                <div class="absolute left-4 top-3 text-neutral-400">
-                  <component :is="MapPin" class="h-5 w-5" />
-                </div>
-                <textarea
-                  v-if="isEditing"
-                  v-model="userProfile.address"
-                  rows="3"
-                  class="w-full pl-12 pr-4 py-3 border border-neutral-300 focus:border-[#b3000f] focus:outline-none focus:ring-2 focus:ring-red-500/20 bg-white text-neutral-900 resize-none"
-                ></textarea>
-                <div v-else class="w-full pl-12 pr-4 py-3 bg-white border border-neutral-200 text-neutral-900 min-h-[80px]">
-                  {{ userProfile.address }}
-                </div>
+              <div class="w-full px-4 py-3 bg-neutral-100 border border-neutral-200 text-neutral-600">
+                {{ userData.role === 'ADMIN' ? 'Quản trị viên' : 'Khách hàng' }}
               </div>
             </div>
 
-            <!-- Date of Birth -->
-            <div>
+            <!-- Provider -->
+            <div v-if="userData">
               <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">
-                Ngày Sinh
+                Phương Thức Đăng Nhập
               </label>
-              <input
-                v-if="isEditing"
-                v-model="userProfile.dateOfBirth"
-                type="date"
-                class="w-full px-4 py-3 border border-neutral-300 focus:border-[#b3000f] focus:outline-none focus:ring-2 focus:ring-red-500/20 bg-white text-neutral-900"
-              />
-              <div v-else class="w-full px-4 py-3 bg-white border border-neutral-200 text-neutral-900">
-                {{ new Date(userProfile.dateOfBirth).toLocaleDateString('vi-VN') }}
+              <div class="w-full px-4 py-3 bg-neutral-100 border border-neutral-200 text-neutral-600">
+                {{ userData.provider === 'GOOGLE' ? 'Google' : userData.provider === 'FACEBOOK' ? 'Facebook' : 'Email/Mật khẩu' }}
               </div>
             </div>
 
-            <!-- Gender -->
-            <div>
+            <!-- Email Verified -->
+            <div v-if="userData">
               <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">
-                Giới Tính
+                Trạng Thái Email
               </label>
-              <div v-if="isEditing" class="flex gap-4">
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input
-                    v-model="userProfile.gender"
-                    type="radio"
-                    value="male"
-                    class="w-4 h-4 text-[#b3000f] border-neutral-300 focus:ring-red-500"
-                  />
-                  <span class="text-neutral-700">Nam</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input
-                    v-model="userProfile.gender"
-                    type="radio"
-                    value="female"
-                    class="w-4 h-4 text-[#b3000f] border-neutral-300 focus:ring-red-500"
-                  />
-                  <span class="text-neutral-700">Nữ</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input
-                    v-model="userProfile.gender"
-                    type="radio"
-                    value="other"
-                    class="w-4 h-4 text-[#b3000f] border-neutral-300 focus:ring-red-500"
-                  />
-                  <span class="text-neutral-700">Khác</span>
-                </label>
-              </div>
-              <div v-else class="w-full px-4 py-3 bg-white border border-neutral-200 text-neutral-900">
-                {{ userProfile.gender === 'male' ? 'Nam' : userProfile.gender === 'female' ? 'Nữ' : 'Khác' }}
+              <div class="w-full px-4 py-3 bg-neutral-100 border border-neutral-200 text-neutral-600">
+                {{ userData.emailVerifiedAt ? 'Đã xác thực' : 'Chưa xác thực' }}
               </div>
             </div>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue';
+import { ref, onMounted, h, computed } from 'vue';
 import { 
   NDataTable, 
   NButton, 
@@ -13,6 +13,7 @@ import {
   NIcon,
   NSelect,
   NTreeSelect,
+  NTree,
   NInputNumber
 } from 'naive-ui';
 import { Plus, Pencil, Trash } from '@vicons/tabler';
@@ -24,6 +25,10 @@ const message = useMessage();
 const loading = ref(false);
 const categories = ref<Category[]>([]);
 const categoryTree = ref<any[]>([]);
+const parentFilterOptions = ref<{ label: string; value: number | null }[]>([]);
+const selectedParentFilter = ref<number | null>(null);
+const searchKeyword = ref('');
+const selectedTreeKey = ref<number[]>([]);
 const pagination = ref({
   page: 1,
   pageSize: 10,
@@ -47,11 +52,6 @@ const formData = ref<CreateCategoryRequest>({
 
 const columns = [
   {
-    title: 'ID',
-    key: 'id',
-    width: 80,
-  },
-  {
     title: 'Tên',
     key: 'name',
     width: 200,
@@ -62,28 +62,6 @@ const columns = [
     width: 200,
   },
   {
-    title: 'Mô tả',
-    key: 'description',
-    width: 300,
-  },
-  {
-    title: 'Danh mục cha',
-    key: 'parent',
-    width: 150,
-    render: (row: Category) => row.parent?.name || '-',
-  },
-  {
-    title: 'Trạng thái',
-    key: 'active',
-    width: 120,
-    render: (row: Category) => {
-      return h(NSwitch, {
-        value: row.active,
-        disabled: true,
-      });
-    },
-  },
-  {
     title: 'Thao tác',
     key: 'actions',
     width: 200,
@@ -91,17 +69,21 @@ const columns = [
       return [
         h(NButton, {
           size: 'small',
-          type: 'primary',
-          style: { marginRight: '8px' },
+          circle: true,
+          tertiary: true,
+          quaternary: true,
+          style: { marginRight: '6px' },
           onClick: () => handleEdit(row),
-        }, { default: () => 'Sửa', icon: () => h(NIcon, null, { default: () => h(Pencil) }) }),
+        }, { icon: () => h(NIcon, null, { default: () => h(Pencil) }) }),
         h(NPopconfirm, {
           onPositiveClick: () => handleDelete(row.id),
         }, {
           trigger: () => h(NButton, {
             size: 'small',
+            circle: true,
             type: 'error',
-          }, { default: () => 'Xóa', icon: () => h(NIcon, null, { default: () => h(Trash) }) }),
+            quaternary: true,
+          }, { icon: () => h(NIcon, null, { default: () => h(Trash) }) }),
           default: () => 'Bạn có chắc muốn xóa danh mục này?',
         }),
       ];
@@ -111,11 +93,23 @@ const columns = [
 
 const buildTreeOptions = (categories: Category[]): any[] => {
   return categories.map(cat => ({
-    label: cat.name,
+    label: cat.children?.length ? `${cat.name} (${cat.children.length})` : cat.name,
     value: cat.id,
     key: cat.id,
     children: cat.children ? buildTreeOptions(cat.children) : undefined,
   }));
+};
+
+const buildParentPath = (cat: Category, map: Map<number, Category>): string => {
+  const path: string[] = [];
+  let current: Category | undefined = cat;
+  while (current?.parentId) {
+    const parent = map.get(current.parentId);
+    if (!parent) break;
+    path.unshift(parent.name);
+    current = parent;
+  }
+  return path.join(' / ');
 };
 
 // Mock data for UI preview
@@ -134,17 +128,29 @@ const loadCategories = async () => {
     // Real API call
     const tree = await CategoryService.getCategoryTree();
     categoryTree.value = buildTreeOptions(tree);
-    const flatten = (cats: any[]): Category[] => {
+    const flatten = (cats: any[], parentMap: Map<number, Category>): Category[] => {
       let result: Category[] = [];
-      cats.forEach(cat => {
+      cats.forEach((cat: Category) => {
+        parentMap.set(cat.id, cat);
         result.push(cat);
-        if (cat.children) {
-          result = result.concat(flatten(cat.children));
+        if ((cat as any).children) {
+          result = result.concat(flatten((cat as any).children, parentMap));
         }
       });
       return result;
     };
-    categories.value = flatten(tree);
+    const parentMap = new Map<number, Category>();
+    const flat = flatten(tree, parentMap);
+    categories.value = flat.map(cat => ({
+      ...cat,
+      parentPath: buildParentPath(cat, parentMap),
+    })) as any;
+
+    // Parent filter options
+    parentFilterOptions.value = [
+      { label: 'Tất cả', value: null },
+      ...tree.map((cat: Category) => ({ label: cat.name, value: cat.id })),
+    ];
     pagination.value.total = categories.value.length;
     loading.value = false;
   } catch (error: any) {
@@ -237,12 +243,35 @@ const handleDelete = async (categoryId: number) => {
 onMounted(() => {
   loadCategories();
 });
+
+const filteredCategories = computed(() => {
+  const keyword = searchKeyword.value.trim().toLowerCase();
+  return categories.value.filter(cat => {
+    const matchKeyword =
+      !keyword ||
+      cat.name.toLowerCase().includes(keyword) ||
+      cat.slug.toLowerCase().includes(keyword);
+    const matchParent =
+      selectedParentFilter.value === null ||
+      cat.parentId === selectedParentFilter.value ||
+      cat.id === selectedParentFilter.value;
+    return matchKeyword && matchParent;
+  });
+});
+
+const handleTreeSelect = (keys: (string | number)[]) => {
+  selectedTreeKey.value = keys as number[];
+  selectedParentFilter.value = keys.length ? (keys[0] as number) : null;
+};
 </script>
 
 <template>
   <div>
     <div class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold">Quản lý danh mục</h1>
+      <div>
+        <h1 class="text-2xl font-bold">Quản lý danh mục</h1>
+        <p class="text-sm text-neutral-500">Chọn danh mục cha bên trái để lọc danh sách con</p>
+      </div>
       <NButton type="primary" @click="handleCreate">
         <template #icon>
           <NIcon><Plus /></NIcon>
@@ -251,16 +280,56 @@ onMounted(() => {
       </NButton>
     </div>
 
-    <NDataTable
-      :columns="columns"
-      :data="categories"
-      :loading="loading"
-      :pagination="pagination"
-      @update:page="(page) => { pagination.page = page; }"
-      @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; }"
-      striped
-      bordered
-    />
+    <div class="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <!-- Tree view -->
+      <div class="border border-neutral-200 bg-white p-3 rounded-md">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-semibold">Cây danh mục</span>
+          <span class="text-xs text-neutral-500">{{ categoryTree.length }} gốc</span>
+        </div>
+        <NTree
+          block-line
+          :data="categoryTree"
+          selectable
+          :selected-keys="selectedTreeKey"
+          :default-expand-all="true"
+          @update:selected-keys="handleTreeSelect"
+        />
+      </div>
+
+      <div>
+        <!-- Bộ lọc nhanh -->
+        <div class="flex flex-col md:flex-row md:items-center gap-3 mb-4">
+          <NInput
+            v-model:value="searchKeyword"
+            placeholder="Tìm theo tên hoặc slug..."
+            clearable
+            class="md:w-1/3"
+          />
+          <NSelect
+            v-model:value="selectedParentFilter"
+            :options="parentFilterOptions"
+            placeholder="Lọc theo danh mục cha"
+            class="md:w-1/3"
+            clearable
+          />
+          <div class="text-sm text-neutral-500">
+            Tổng: {{ filteredCategories.length }} danh mục
+          </div>
+        </div>
+
+        <NDataTable
+          :columns="columns"
+          :data="filteredCategories"
+          :loading="loading"
+          :pagination="pagination"
+          @update:page="(page) => { pagination.page = page; }"
+          @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; }"
+          striped
+          bordered
+        />
+      </div>
+    </div>
 
     <NModal v-model:show="showModal" :title="modalTitle" preset="dialog" style="width: 600px">
       <NForm ref="formRef" :model="formData" label-placement="left" label-width="120">

@@ -421,44 +421,49 @@ onMounted(() => {
         <div
           v-for="item in allProducts"
           :key="item.id"
-          class="border border-neutral-200 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col group"
+          class="border border-neutral-200 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col group rounded-md overflow-hidden"
         >
-          <div class="relative overflow-hidden">
-            <img
-              :src="item.thumbnail || 'https://via.placeholder.com/400'"
-              :alt="item.name"
-              class="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-            <div class="absolute top-3 left-3 px-3 py-1 text-sm font-semibold rounded text-white bg-black">
-              NEW
-            </div>
-          </div>
-          <div class="p-5 flex-1 flex flex-col gap-3">
-            <div v-if="item.brand" class="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
-              {{ item.brand }}
-            </div>
-            <div>
-              <h3 class="text-lg font-semibold text-neutral-900 mb-1">{{ item.name }}</h3>
-              <p v-if="item.origin" class="text-sm text-neutral-500">{{ item.origin }}</p>
-            </div>
-            <div class="flex items-center justify-between pt-2 border-t border-neutral-100">
-              <div class="flex items-baseline gap-2">
-                <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+          <router-link
+            :to="{ name: 'ProductDetail', params: { slug: item.slug } }"
+            class="block flex-1"
+          >
+            <div class="relative overflow-hidden">
+              <img
+                :src="item.thumbnail || 'https://via.placeholder.com/400'"
+                :alt="item.name"
+                class="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+              <div class="absolute top-3 left-3 px-3 py-1 text-sm font-semibold rounded text-white bg-black">
+                NEW
               </div>
-              <button
-                @click="handleAddToCart(item)"
-                :disabled="addingToCart === item.id || cartStore.loading"
-                :class="[
-                  'h-9 w-9 flex items-center justify-center border transition-all duration-200',
-                  addingToCart === item.id || cartStore.loading
-                    ? 'border-neutral-300 bg-neutral-100 text-neutral-400 cursor-not-allowed'
-                    : 'border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white cursor-pointer'
-                ]"
-              >
-                <span v-if="addingToCart === item.id">⏳</span>
-                <span v-else>🛒</span>
-              </button>
             </div>
+            <div class="p-5 flex flex-col gap-3">
+              <div v-if="item.brand" class="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+                {{ item.brand }}
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-neutral-900 mb-1">{{ item.name }}</h3>
+                <p v-if="item.origin" class="text-sm text-neutral-500">{{ item.origin }}</p>
+              </div>
+            </div>
+          </router-link>
+          <div class="px-5 pb-4 pt-0 flex items-center justify-between border-t border-neutral-100">
+            <div class="flex items-baseline gap-2">
+              <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+            </div>
+            <button
+              @click.stop="handleAddToCart(item)"
+              :disabled="addingToCart === item.id || cartStore.loading"
+              :class="[
+                'h-9 w-9 flex items-center justify-center border transition-all duration-200 rounded-md',
+                addingToCart === item.id || cartStore.loading
+                  ? 'border-neutral-300 bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                  : 'border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white cursor-pointer'
+              ]"
+            >
+              <span v-if="addingToCart === item.id">⏳</span>
+              <span v-else>🛒</span>
+            </button>
           </div>
         </div>
       </div>

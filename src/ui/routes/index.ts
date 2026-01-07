@@ -19,9 +19,29 @@ const router = createRouter({
 
 
 import useAuthStore from "@/ui/stores/auth.store";
+import useCartStore from "@/ui/stores/cart.store";
+import JwtService from "@/core/services/storages/jwt.service";
 
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
+  const cartStore = useCartStore();
+  
+  // Nếu BE redirect kèm token/refresh_token trên URL, lưu và làm sạch query
+  const token = to.query.token as string | undefined;
+  const refreshToken = (to.query.refresh_token as string) || (to.query.refreshToken as string) || undefined;
+  if (token && refreshToken) {
+    JwtService.setAccessToken(token);
+    JwtService.setRefreshToken(refreshToken);
+    // Làm sạch query tránh lộ token trên URL
+    const cleanedQuery = { ...to.query };
+    delete cleanedQuery.token;
+    delete cleanedQuery.refresh_token;
+    delete cleanedQuery.refreshToken;
+    await authStore.fetchCurrentUser();
+    await cartStore.loadCart();
+    next({ path: to.path, query: cleanedQuery, replace: true });
+    return;
+  }
   
   // Check authentication status
   await authStore.checkAuth();

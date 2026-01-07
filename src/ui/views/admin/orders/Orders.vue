@@ -117,9 +117,11 @@ const columns = [
     render: (row: Order) => {
       return h(NButton, {
         size: 'small',
-        type: 'primary',
+        circle: true,
+        tertiary: true,
+        quaternary: true,
         onClick: () => handleView(row),
-      }, { default: () => 'Xem', icon: () => h(NIcon, null, { default: () => h(Eye) }) });
+      }, { icon: () => h(NIcon, null, { default: () => h(Eye) }) });
     },
   },
 ];

@@ -165,12 +165,13 @@ const columns = [
           NButton,
           {
             size: 'small',
-            type: 'info',
-            style: { marginRight: '8px' },
+            circle: true,
+            tertiary: true,
+            quaternary: true,
+            style: { marginRight: '6px' },
             onClick: () => handleViewDetail(row),
           },
           {
-            default: () => 'Chi tiết',
             icon: () => h(NIcon, null, { default: () => h(Eye) }),
           }
         ),
@@ -178,12 +179,13 @@ const columns = [
           NButton,
           {
             size: 'small',
-            type: 'primary',
-            style: { marginRight: '8px' },
+            circle: true,
+            tertiary: true,
+            quaternary: true,
+            style: { marginRight: '6px' },
             onClick: () => handleEdit(row),
           },
           {
-            default: () => 'Sửa',
             icon: () => h(NIcon, null, { default: () => h(Pencil) }),
           }
         ),
@@ -198,10 +200,11 @@ const columns = [
                 NButton,
                 {
                   size: 'small',
+                  circle: true,
                   type: 'error',
+                  quaternary: true,
                 },
                 {
-                  default: () => 'Xóa',
                   icon: () => h(NIcon, null, { default: () => h(Trash) }),
                 }
               ),

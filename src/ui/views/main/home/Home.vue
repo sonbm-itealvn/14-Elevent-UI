@@ -212,37 +212,39 @@ const newsList = [
       <div
         v-for="(item, index) in bestSellers"
         :key="item.id"
-        class="bg-white shadow-md hover:shadow-lg transition-shadow duration-200 border border-neutral-200 flex flex-col"
+        class="bg-white shadow-md hover:shadow-lg transition-shadow duration-200 border border-neutral-200 flex flex-col rounded-md overflow-hidden"
       >
-        <div class="relative">
-          <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="w-full h-56 object-cover" />
-          <div class="absolute top-3 left-3 bg-[#b3000f] text-white px-3 py-1 text-sm font-semibold rounded">
-            #{{ index + 1 }}
+        <router-link :to="{ name: 'ProductDetail', params: { slug: item.slug } }" class="block flex-1">
+          <div class="relative">
+            <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="w-full h-56 object-cover" />
+            <div class="absolute top-3 left-3 bg-[#b3000f] text-white px-3 py-1 text-sm font-semibold rounded">
+              #{{ index + 1 }}
+            </div>
           </div>
-        </div>
 
-        <div class="p-5 flex-1 flex flex-col gap-3">
-          <div>
-            <h3 class="text-lg font-semibold text-neutral-900 uppercase tracking-wide">{{ item.name }}</h3>
-            <p v-if="item.brand" class="text-sm text-neutral-500">{{ item.brand }}</p>
+          <div class="p-5 flex flex-col gap-3">
+            <div>
+              <h3 class="text-lg font-semibold text-neutral-900 uppercase tracking-wide">{{ item.name }}</h3>
+              <p v-if="item.brand" class="text-sm text-neutral-500">{{ item.brand }}</p>
+            </div>
           </div>
-          <div class="flex items-center justify-between pt-2">
-            <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
-            <button
-              @click="handleAddToCart(item)"
-              :disabled="addingToCart === item.id || cartStore.loading"
-              :class="[
-                'flex items-center gap-2 px-4 py-2 uppercase text-sm font-semibold transition-colors duration-200',
-                addingToCart === item.id || cartStore.loading
-                  ? 'bg-neutral-400 text-white cursor-not-allowed'
-                  : 'bg-black text-white hover:bg-neutral-800 cursor-pointer'
-              ]"
-            >
-              <span class="text-xs">
-                {{ addingToCart === item.id ? 'Đang thêm...' : 'Add' }}
-              </span>
-            </button>
-          </div>
+        </router-link>
+        <div class="px-5 pb-4 pt-0 flex items-center justify-between border-t border-neutral-100">
+          <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+          <button
+            @click.stop="handleAddToCart(item)"
+            :disabled="addingToCart === item.id || cartStore.loading"
+            :class="[
+              'flex items-center gap-2 px-4 py-2 uppercase text-sm font-semibold transition-colors duration-200 rounded-md',
+              addingToCart === item.id || cartStore.loading
+                ? 'bg-neutral-400 text-white cursor-not-allowed'
+                : 'bg-black text-white hover:bg-neutral-800 cursor-pointer'
+            ]"
+          >
+            <span class="text-xs">
+              {{ addingToCart === item.id ? 'Đang thêm...' : 'Add' }}
+            </span>
+          </button>
         </div>
       </div>
     </div>
@@ -265,40 +267,42 @@ const newsList = [
       <div
         v-for="item in promotionProducts"
         :key="item.id"
-        class="border border-neutral-200 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col"
+        class="border border-neutral-200 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col rounded-md overflow-hidden"
       >
-        <div class="relative">
-          <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="w-full h-56 object-cover" />
-          <div class="absolute top-3 left-3 bg-black text-white px-3 py-1 text-sm font-semibold rounded">
-            NEW
-          </div>
-        </div>
-        <div class="p-5 flex-1 flex flex-col gap-3">
-          <div v-if="item.brand" class="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
-            {{ item.brand }}
-          </div>
-          <div>
-            <h3 class="text-lg font-semibold text-neutral-900">{{ item.name }}</h3>
-            <p v-if="item.origin" class="text-sm text-neutral-500">{{ item.origin }}</p>
-          </div>
-          <div class="flex items-center justify-between pt-2">
-            <div class="flex items-baseline gap-2">
-              <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+        <router-link :to="{ name: 'ProductDetail', params: { slug: item.slug } }" class="block flex-1">
+          <div class="relative">
+            <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="w-full h-56 object-cover" />
+            <div class="absolute top-3 left-3 bg-black text-white px-3 py-1 text-sm font-semibold rounded">
+              NEW
             </div>
-            <button
-              @click="handleAddToCart(item)"
-              :disabled="addingToCart === item.id || cartStore.loading"
-              :class="[
-                'h-9 w-9 flex items-center justify-center border transition-colors duration-200',
-                addingToCart === item.id || cartStore.loading
-                  ? 'border-neutral-300 bg-neutral-100 text-neutral-400 cursor-not-allowed'
-                  : 'border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white cursor-pointer'
-              ]"
-            >
-              <span v-if="addingToCart === item.id">⏳</span>
-              <span v-else>🛒</span>
-            </button>
           </div>
+          <div class="p-5 flex flex-col gap-3">
+            <div v-if="item.brand" class="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+              {{ item.brand }}
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-neutral-900">{{ item.name }}</h3>
+              <p v-if="item.origin" class="text-sm text-neutral-500">{{ item.origin }}</p>
+            </div>
+          </div>
+        </router-link>
+        <div class="px-5 pb-4 pt-0 flex items-center justify-between border-t border-neutral-100">
+          <div class="flex items-baseline gap-2">
+            <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+          </div>
+          <button
+            @click.stop="handleAddToCart(item)"
+            :disabled="addingToCart === item.id || cartStore.loading"
+            :class="[
+              'h-9 w-9 flex items-center justify-center border transition-colors duration-200 rounded-md',
+              addingToCart === item.id || cartStore.loading
+                ? 'border-neutral-300 bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                : 'border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white cursor-pointer'
+            ]"
+          >
+            <span v-if="addingToCart === item.id">⏳</span>
+            <span v-else>🛒</span>
+          </button>
         </div>
       </div>
     </div>

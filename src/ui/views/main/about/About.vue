@@ -64,7 +64,7 @@ const stats = [
           <span class="h-[2px] w-12 bg-red-600"></span>
         </div>
         <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold">
-          Về <span class="text-red-500">Nihon Market</span>
+          Về <span class="text-red-500">14ELEVENT</span>
         </h1>
         <p class="text-lg md:text-xl text-neutral-200 max-w-2xl mx-auto">
           私たちについて
@@ -86,7 +86,7 @@ const stats = [
             Mang Hương Vị Nhật Bản Đến Việt Nam
           </h2>
           <p class="text-neutral-600 leading-relaxed">
-            Nihon Market được thành lập với sứ mệnh mang đến cho người Việt Nam những trải nghiệm 
+            14Elevent được thành lập với sứ mệnh mang đến cho người Việt Nam những trải nghiệm 
             ẩm thực Nhật Bản chân thực nhất. Chúng tôi tin rằng ẩm thực không chỉ là thức ăn, mà còn 
             là cầu nối văn hóa, là cách để hiểu và yêu mến một đất nước.
           </p>
@@ -202,7 +202,7 @@ const stats = [
         <div class="relative order-2 lg:order-1">
           <img
             src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80"
-            alt="Nihon Market Mission"
+            alt="14ELEVENT Mission"
             class="w-full h-[400px] object-cover shadow-lg"
           />
         </div>
@@ -215,7 +215,7 @@ const stats = [
             Sứ Mệnh Của Chúng Tôi
           </h2>
           <p class="text-neutral-600 leading-relaxed">
-            Nihon Market cam kết trở thành cầu nối văn hóa ẩm thực giữa Việt Nam và Nhật Bản. 
+            14Elevent cam kết trở thành cầu nối văn hóa ẩm thực giữa Việt Nam và Nhật Bản. 
             Chúng tôi không chỉ bán sản phẩm, mà còn mang đến những trải nghiệm văn hóa độc đáo, 
             giúp mọi người hiểu và yêu mến ẩm thực Nhật Bản.
           </p>

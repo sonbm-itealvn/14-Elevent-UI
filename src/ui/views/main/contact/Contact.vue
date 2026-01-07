@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { PhoneCall, Mail, MapPin, BrandFacebook, BrandInstagram, BrandTwitter, Send } from '@vicons/tabler';
+import { PhoneCall, Mail, MapPin, BrandFacebook, BrandInstagram, BrandTwitter, Send, BrandTiktok } from '@vicons/tabler';
 
 const formData = ref({
   name: '',
@@ -15,7 +15,7 @@ const contactInfo = [
     icon: PhoneCall,
     title: 'Điện Thoại',
     jpTitle: '電話',
-    content: '+84 123 456 789',
+    content: '+84 812 325 555',
     subContent: 'Mon - Sun: 8:00 - 22:00',
   },
   {
@@ -29,10 +29,14 @@ const contactInfo = [
     icon: MapPin,
     title: 'Địa Chỉ',
     jpTitle: '住所',
-    content: '123 Đường ABC, Quận XYZ',
+    content: 'Số 13, Bùi Ngọc Dương, Bạch Mai',
     subContent: 'Hà Nội, Việt Nam',
   },
 ];
+
+// Google Maps embed cho địa chỉ cửa hàng
+const mapEmbedUrl =
+  'https://www.google.com/maps?q=13%20B%C3%B9i%20Ng%E1%BB%8Dc%20D%C6%B0%C6%A1ng,%20B%E1%BA%A1ch%20Mai,%20H%C3%A0%20N%E1%BB%99i&output=embed';
 
 const handleSubmit = (e: Event) => {
   e.preventDefault();
@@ -206,22 +210,22 @@ const handleSubmit = (e: Event) => {
             </h3>
             <div class="flex items-center gap-3">
               <a
-                href="#"
+                href="https://www.facebook.com/share/187u9XAvb2/?mibextid=wwXIfr"
                 class="h-12 w-12 border border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white flex items-center justify-center transition-all duration-200"
               >
                 <BrandFacebook class="h-6 w-6" />
               </a>
               <a
-                href="#"
+                href="https://www.instagram.com/14elevent_jp/?igsh=NjZhZGFob2JzZWdh&utm_source=qr"
                 class="h-12 w-12 border border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white flex items-center justify-center transition-all duration-200"
               >
                 <BrandInstagram class="h-6 w-6" />
               </a>
               <a
-                href="#"
+                href="https://www.tiktok.com/@14elevent.jp?_r=1&_t=ZS-92rnoFw1euj"
                 class="h-12 w-12 border border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white flex items-center justify-center transition-all duration-200"
               >
-                <BrandTwitter class="h-6 w-6" />
+                <BrandTiktok class="h-6 w-6" />
               </a>
             </div>
           </div>
@@ -231,13 +235,17 @@ const handleSubmit = (e: Event) => {
             <h3 class="text-lg font-semibold text-neutral-900 mb-4 uppercase tracking-wide">
               Vị Trí Cửa Hàng
             </h3>
-            <div class="relative h-64 bg-neutral-200 border border-neutral-300">
-              <div class="absolute inset-0 flex items-center justify-center text-neutral-400">
-                <div class="text-center">
-                  <MapPin class="h-12 w-12 mx-auto mb-2" />
-                  <p class="text-sm">Bản đồ sẽ được hiển thị tại đây</p>
-                </div>
-              </div>
+            <div class="relative h-72 bg-neutral-200 border border-neutral-300 overflow-hidden rounded-lg">
+              <iframe
+                :src="mapEmbedUrl"
+                width="100%"
+                height="100%"
+                style="border:0;"
+                allowfullscreen=""
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"
+                title="Bản đồ cửa hàng"
+              ></iframe>
             </div>
           </div>
         </div>

@@ -2,8 +2,9 @@
 import { NAvatar, NIcon, NDropdown, type DropdownOption } from 'naive-ui';
 import useThemeStore from '@/ui/stores/theme.store';
 import useAuthStore from '@/ui/stores/auth.store';
-import { computed, h, type Component } from 'vue';
+import { computed, h, ref, watch, type Component } from 'vue';
 import { useRouter } from 'vue-router';
+import { User } from '@vicons/tabler';
 import menuAvatarOptions from '@/shared/constants/menu-avatar.constant';
 
 // Props
@@ -17,6 +18,22 @@ const themeStore = useThemeStore();
 const authStore = useAuthStore();
 const theme = computed(() => themeStore.getTheme);
 const router = useRouter();
+
+// Track avatar load error
+const avatarError = ref(false);
+const hasAvatar = computed(() => props.url && !avatarError.value);
+
+const handleAvatarError = () => {
+  avatarError.value = true;
+};
+
+watch(
+  () => props.url,
+  () => {
+    // Mỗi khi url thay đổi, reset trạng thái lỗi
+    avatarError.value = false;
+  }
+);
 
 // Helpers
 const getInitials = (name?: string | null) => {
@@ -45,25 +62,26 @@ const options = computed<DropdownOption[]>(() => [
           h(
             NAvatar,
             {
-              src: props.url,
+              src: hasAvatar.value ? props.url : undefined,
               round: true,
               size: 36,
-              color: props.url ? undefined : theme.value === 'light' ? '#daf0e4' : '#243834'
+              color: hasAvatar.value ? undefined : theme.value === 'light' ? '#f3f4f6' : '#374151'
+              ,
+              onError: handleAvatarError
             },
             {
               default: () =>
-                props.url
+                hasAvatar.value
                   ? null
                   : h(
-                      'span',
+                      NIcon,
                       {
+                        size: 20,
                         style: {
-                          color: theme.value === 'light' ? '#18a058' : '#63e2b7',
-                          fontSize: '14px',
-                          fontWeight: '500'
+                          color: theme.value === 'light' ? '#9ca3af' : '#d1d5db'
                         }
                       },
-                      initials.value
+                      { default: () => h(User) }
                     )
             }
           ),
@@ -116,27 +134,25 @@ const handleMenuSelect = (key: string | number) => {
     @select="handleMenuSelect"
   >
     <n-avatar
-      v-if="url"
+      v-if="hasAvatar"
       lazy
       :src="url"
       round
       class="cursor-pointer"
+      :on-error="handleAvatarError"
     />
     <n-avatar
       v-else
       round
-      :color="theme === 'light' ? '#daf0e4' : '#243834'"
+      :color="theme === 'light' ? '#f3f4f6' : '#374151'"
       class="cursor-pointer"
     >
-      <span
-        :style="{
-          color: theme === 'light' ? '#18a058' : '#63e2b7',
-          fontSize: '14px',
-          fontWeight: '500'
-        }"
+      <n-icon
+        :size="20"
+        :color="theme === 'light' ? '#9ca3af' : '#d1d5db'"
       >
-        {{ initials }}
-      </span>
+        <User />
+      </n-icon>
     </n-avatar>
   </n-dropdown>
 </template>

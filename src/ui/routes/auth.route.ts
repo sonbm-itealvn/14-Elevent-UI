@@ -17,6 +17,11 @@ const AuthRoutes: RouteRecordRaw = {
         path: "register",
         name: "Register",
         component: () => import("@/ui/views/auth/Register.vue"),
+    },
+    {
+        path: "oauth2/callback",
+        name: "OAuthCallback",
+        component: () => import("@/ui/views/auth/OAuthCallback.vue"),
     }
   ],
 };

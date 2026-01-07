@@ -25,6 +25,11 @@ const MainRoutes: RouteRecordRaw = {
             component: () => import("@/ui/views/main/products/Products.vue"),
         },
         {
+            path: "/products/:slug",
+            name: "ProductDetail",
+            component: () => import("@/ui/views/main/products/ProductDetail.vue"),
+        },
+        {
             path: "/best-sellers",
             name: "BestSellers",
             component: () => import("@/ui/views/main/best-sellers/BestSellers.vue"),

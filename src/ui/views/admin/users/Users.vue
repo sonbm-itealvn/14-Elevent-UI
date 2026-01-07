@@ -100,17 +100,21 @@ const columns = [
       return [
         h(NButton, {
           size: 'small',
-          type: 'primary',
-          style: { marginRight: '8px' },
+          circle: true,
+          tertiary: true,
+          quaternary: true,
+          style: { marginRight: '6px' },
           onClick: () => handleEdit(row),
-        }, { default: () => 'Sửa', icon: () => h(NIcon, null, { default: () => h(Pencil) }) }),
+        }, { icon: () => h(NIcon, null, { default: () => h(Pencil) }) }),
         h(NPopconfirm, {
           onPositiveClick: () => handleDelete(row.id),
         }, {
           trigger: () => h(NButton, {
             size: 'small',
+            circle: true,
             type: 'error',
-          }, { default: () => 'Xóa', icon: () => h(NIcon, null, { default: () => h(Trash) }) }),
+            quaternary: true,
+          }, { icon: () => h(NIcon, null, { default: () => h(Trash) }) }),
           default: () => 'Bạn có chắc muốn xóa người dùng này?',
         }),
       ];

@@ -130,8 +130,10 @@ const columns = [
       }, {
         trigger: () => h(NButton, {
           size: 'small',
+          circle: true,
           type: 'error',
-        }, { default: () => 'Xóa', icon: () => h(NIcon, null, { default: () => h(Trash) }) }),
+          quaternary: true,
+        }, { icon: () => h(NIcon, null, { default: () => h(Trash) }) }),
         default: () => 'Bạn có chắc muốn xóa file này?',
       });
     },

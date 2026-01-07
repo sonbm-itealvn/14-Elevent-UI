@@ -18,17 +18,19 @@ import {
   NTabPane,
   NUpload,
   NImage,
-  NTag
+  NTag,
+  type UploadFileInfo
 } from 'naive-ui';
-import { Plus, Pencil, Trash, Photo as ImageIcon } from '@vicons/tabler';
+import { Plus, Pencil, Trash, Photo as ImageIcon, Eye } from '@vicons/tabler';
 import ProductService from '@/core/services/api/product.service';
 import CategoryService from '@/core/services/api/category.service';
-import type { Product, CreateProductRequest, UpdateProductRequest, ProductVariant, ProductImage } from '@/domain/models/product.model';
+import type { Product, CreateProductRequest, UpdateProductRequest } from '@/domain/models/product.model';
 import type { Category } from '@/domain/models/category.model';
 
 const message = useMessage();
 
 const loading = ref(false);
+const saving = ref(false);
 const products = ref<Product[]>([]);
 const categories = ref<Category[]>([]);
 const pagination = ref({
@@ -40,8 +42,10 @@ const pagination = ref({
 });
 
 const showModal = ref(false);
+const showViewModal = ref(false);
 const modalTitle = ref('Tạo sản phẩm mới');
 const editingProduct = ref<Product | null>(null);
+const viewingProduct = ref<Product | null>(null);
 const formRef = ref();
 
 const formData = ref<CreateProductRequest>({
@@ -61,6 +65,31 @@ const variantForm = ref({
   price: 0,
   stock: 0,
 });
+
+const variantAttributes = ref<{ key: string; value: string }[]>([
+  { key: '', value: '' },
+]);
+
+const selectedImages = ref<UploadFileInfo[]>([]);
+const pendingVariants = ref<Array<{
+  sku: string;
+  name?: string;
+  price: number;
+  stock: number;
+  attributes?: Record<string, string>;
+}>>([]);
+
+const addAttributeRow = () => {
+  variantAttributes.value.push({ key: '', value: '' });
+};
+
+const removeAttributeRow = (index: number) => {
+  if (variantAttributes.value.length === 1) {
+    variantAttributes.value[0] = { key: '', value: '' };
+    return;
+  }
+  variantAttributes.value.splice(index, 1);
+};
 
 const columns = [
   {
@@ -82,7 +111,7 @@ const columns = [
     title: 'Danh mục',
     key: 'category',
     width: 150,
-    render: (row: Product) => row.category?.name || '-',
+    render: (row: Product) => row.categoryName || row.category?.name || '-',
   },
   {
     title: 'Giá',
@@ -109,17 +138,29 @@ const columns = [
       return [
         h(NButton, {
           size: 'small',
+          circle: true,
+          tertiary: true,
+          quaternary: true,
+          style: { marginRight: '6px' },
+          onClick: () => handleView(row),
+        }, { icon: () => h(NIcon, null, { default: () => h(Eye) }) }),
+        h(NButton, {
+          size: 'small',
+          circle: true,
           type: 'primary',
-          style: { marginRight: '8px' },
+          quaternary: true,
+          style: { marginRight: '6px' },
           onClick: () => handleEdit(row),
-        }, { default: () => 'Sửa', icon: () => h(NIcon, null, { default: () => h(Pencil) }) }),
+        }, { icon: () => h(NIcon, null, { default: () => h(Pencil) }) }),
         h(NPopconfirm, {
           onPositiveClick: () => handleDelete(row.id),
         }, {
           trigger: () => h(NButton, {
             size: 'small',
+            circle: true,
             type: 'error',
-          }, { default: () => 'Xóa', icon: () => h(NIcon, null, { default: () => h(Trash) }) }),
+            quaternary: true,
+          }, { icon: () => h(NIcon, null, { default: () => h(Trash) }) }),
           default: () => 'Bạn có chắc muốn xóa sản phẩm này?',
         }),
       ];
@@ -190,34 +231,48 @@ const handleCreate = () => {
     price: 0,
     active: true,
   };
+  variantForm.value = { sku: '', name: '', price: 0, stock: 0 };
+  variantAttributes.value = [{ key: '', value: '' }];
+  pendingVariants.value = [];
+  selectedImages.value = [];
   modalTitle.value = 'Tạo sản phẩm mới';
   showModal.value = true;
 };
 
 const handleEdit = async (product: Product) => {
   try {
-    // Mock data for UI preview
-    const fullProduct = { ...product, variants: [], images: [] };
+    const fullProduct = await ProductService.getProductById(product.id);
     editingProduct.value = fullProduct;
-    
-    // Real API call - uncomment when ready
-    // const fullProduct = await ProductService.getProductById(product.id);
-    // editingProduct.value = fullProduct;
     formData.value = {
       name: fullProduct.name,
       slug: fullProduct.slug,
       description: fullProduct.description || '',
-      categoryId: fullProduct.categoryId,
+      categoryId: fullProduct.category?.id || (fullProduct as any).categoryId || 0,
       brand: fullProduct.brand || '',
       origin: fullProduct.origin || '',
       price: fullProduct.price,
-      active: fullProduct.active,
+      active: fullProduct.status === 'ACTIVE',
     };
+    variantAttributes.value = [{ key: '', value: '' }];
+    pendingVariants.value = [];
+    selectedImages.value = [];
     modalTitle.value = 'Chỉnh sửa sản phẩm';
     showModal.value = true;
   } catch (error: any) {
     message.error('Lỗi khi tải thông tin sản phẩm');
   }
+};
+
+const handleView = (product: Product) => {
+  // Mở modal xem chi tiết trong admin
+  ProductService.getProductById(product.id)
+    .then((data) => {
+      viewingProduct.value = data;
+      showViewModal.value = true;
+    })
+    .catch((error: any) => {
+      message.error(error?.response?.data?.message || 'Không thể tải chi tiết sản phẩm');
+    });
 };
 
 const generateSlug = (name: string) => {
@@ -238,18 +293,60 @@ const handleNameChange = () => {
 const handleSave = async () => {
   try {
     await formRef.value?.validate();
-    
+    saving.value = true;
+    let productId = editingProduct.value?.id;
+
+    const buildVariantAttributes = () => {
+      const attrs: Record<string, string> = {};
+      variantAttributes.value.forEach(({ key, value }) => {
+        if (key?.trim() && value !== undefined && value !== '') {
+          attrs[key.trim()] = value;
+        }
+      });
+      return Object.keys(attrs).length ? attrs : undefined;
+    };
+
     // Real API call
     if (editingProduct.value) {
       await ProductService.updateProduct(editingProduct.value.id, formData.value as UpdateProductRequest);
       message.success('Cập nhật sản phẩm thành công');
     } else {
-      await ProductService.createProduct(formData.value);
-      message.success('Tạo sản phẩm thành công');
+      const created = await ProductService.createProduct(formData.value);
+      productId = created.id;
+
+      const variantsToCreate = [...pendingVariants.value];
+      const hasVariantPayload = !!variantForm.value.sku;
+      if (hasVariantPayload) {
+        variantsToCreate.push({
+          sku: variantForm.value.sku,
+          price: variantForm.value.price,
+          stock: variantForm.value.stock,
+          name: variantForm.value.name,
+          attributes: buildVariantAttributes(),
+        });
+      }
+
+      if (variantsToCreate.length && productId) {
+        for (const variant of variantsToCreate) {
+          await ProductService.createVariant(productId, variant);
+        }
+      }
+
+      const files = selectedImages.value
+        .map((file) => file.file)
+        .filter((file): file is File => !!file);
+      if (files.length && productId) {
+        await ProductService.uploadImages(productId, files);
+      }
+
+      message.success('Tạo sản phẩm kèm biến thể và ảnh thành công');
     }
     showModal.value = false;
+    saving.value = false;
+    selectedImages.value = [];
     await loadProducts();
   } catch (error: any) {
+    saving.value = false;
     message.error(error.response?.data?.message || 'Lỗi khi lưu sản phẩm');
   }
 };
@@ -276,15 +373,38 @@ const handleToggleStatus = async (productId: number, status: 'ACTIVE' | 'INACTIV
 };
 
 const handleAddVariant = async () => {
-  if (!editingProduct.value) return;
+  const attrs: Record<string, string> = {};
+  variantAttributes.value.forEach(({ key, value }) => {
+    if (key?.trim() && value !== undefined && value !== '') {
+      attrs[key.trim()] = value;
+    }
+  });
+  if (!editingProduct.value) {
+    pendingVariants.value.push({
+      ...variantForm.value,
+      attributes: Object.keys(attrs).length ? attrs : undefined,
+    });
+    message.success('Đã thêm biến thể vào danh sách chờ lưu');
+    variantForm.value = { sku: '', name: '', price: 0, stock: 0 };
+    variantAttributes.value = [{ key: '', value: '' }];
+    return;
+  }
   try {
-    await ProductService.createVariant(editingProduct.value.id, variantForm.value);
+    await ProductService.createVariant(editingProduct.value.id, {
+      ...variantForm.value,
+      attributes: Object.keys(attrs).length ? attrs : undefined,
+    });
     message.success('Thêm biến thể thành công');
     variantForm.value = { sku: '', name: '', price: 0, stock: 0 };
+    variantAttributes.value = [{ key: '', value: '' }];
     await handleEdit(editingProduct.value);
   } catch (error: any) {
     message.error(error.response?.data?.message || 'Lỗi khi thêm biến thể');
   }
+};
+
+const handleRemovePendingVariant = (index: number) => {
+  pendingVariants.value.splice(index, 1);
 };
 
 const handleDeleteVariant = async (variantId: number) => {
@@ -298,18 +418,6 @@ const handleDeleteVariant = async (variantId: number) => {
   }
 };
 
-const handleUploadImages = async (fileList: any[]) => {
-  if (!editingProduct.value) return;
-  try {
-    const files = fileList.map(f => f.file);
-    await ProductService.uploadImages(editingProduct.value.id, files);
-    message.success('Upload hình ảnh thành công');
-    await handleEdit(editingProduct.value);
-  } catch (error: any) {
-    message.error('Lỗi khi upload hình ảnh');
-  }
-};
-
 const handleDeleteImage = async (imageId: number) => {
   if (!editingProduct.value) return;
   try {
@@ -318,6 +426,25 @@ const handleDeleteImage = async (imageId: number) => {
     await handleEdit(editingProduct.value);
   } catch (error: any) {
     message.error('Lỗi khi xóa hình ảnh');
+  }
+};
+
+const handleImageChange = async ({ fileList }: { fileList: UploadFileInfo[] }) => {
+  selectedImages.value = fileList;
+
+  if (editingProduct.value && fileList.length) {
+    try {
+      const files = fileList
+        .map((f) => f.file)
+        .filter((file): file is File => !!file);
+      if (!files.length) return;
+      await ProductService.uploadImages(editingProduct.value.id, files);
+      message.success('Upload hình ảnh thành công');
+      selectedImages.value = [];
+      await handleEdit(editingProduct.value);
+    } catch (error: any) {
+      message.error('Lỗi khi upload hình ảnh');
+    }
   }
 };
 
@@ -351,6 +478,51 @@ onMounted(() => {
       bordered
     />
 
+    <!-- View Detail Modal -->
+    <NModal v-model:show="showViewModal" :title="viewingProduct?.name || 'Chi tiết sản phẩm'" preset="dialog" style="width: 900px">
+      <NTabs v-if="viewingProduct" type="line" animated>
+        <NTabPane name="view-basic" tab="Thông tin cơ bản">
+          <NCard size="small">
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div><strong>Tên:</strong> {{ viewingProduct.name }}</div>
+              <div><strong>Slug:</strong> {{ viewingProduct.slug }}</div>
+              <div><strong>Danh mục:</strong> {{ viewingProduct.category?.name || '-' }}</div>
+              <div><strong>Thương hiệu:</strong> {{ viewingProduct.brand || '-' }}</div>
+              <div><strong>Xuất xứ:</strong> {{ viewingProduct.origin || '-' }}</div>
+              <div><strong>Giá tối thiểu:</strong> {{ viewingProduct.minPrice ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(viewingProduct.minPrice) : '-' }}</div>
+              <div><strong>Trạng thái:</strong> {{ viewingProduct.status === 'ACTIVE' ? 'Đang bán' : 'Ngừng' }}</div>
+              <div class="col-span-2"><strong>Mô tả:</strong> {{ viewingProduct.description || '-' }}</div>
+            </div>
+          </NCard>
+        </NTabPane>
+
+        <NTabPane v-if="viewingProduct?.variants?.length" name="view-variants" tab="Biến thể">
+          <NDataTable
+            :columns="[
+              { title: 'SKU', key: 'sku' },
+              { title: 'Giá', key: 'price', render: (row) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.price) },
+              { title: 'Tồn kho', key: 'stock' },
+              { title: 'Thuộc tính', key: 'attributes', render: (row) => row.attributes ? Object.values(row.attributes).join(' · ') : '-' },
+            ]"
+            :data="viewingProduct.variants"
+            size="small"
+            :bordered="true"
+          />
+        </NTabPane>
+
+        <NTabPane v-if="viewingProduct?.images?.length" name="view-images" tab="Hình ảnh">
+          <div class="grid grid-cols-4 gap-3">
+            <div v-for="img in viewingProduct.images" :key="img.id" class="relative border border-neutral-200 rounded">
+              <NImage :src="img.imageUrl" width="100%" height="140" object-fit="cover" />
+              <NTag v-if="img.thumbnail" type="success" size="small" class="absolute top-1 left-1">Đại diện</NTag>
+            </div>
+          </div>
+        </NTabPane>
+      </NTabs>
+      <template #action>
+        <NButton @click="showViewModal = false">Đóng</NButton>
+      </template>
+    </NModal>
     <NModal v-model:show="showModal" :title="modalTitle" preset="dialog" style="width: 900px">
       <NTabs type="line" animated>
         <NTabPane name="basic" tab="Thông tin cơ bản">
@@ -385,7 +557,7 @@ onMounted(() => {
             </NFormItem>
           </NForm>
         </NTabPane>
-        <NTabPane v-if="editingProduct" name="variants" tab="Biến thể">
+        <NTabPane name="variants" tab="Biến thể">
           <div class="mb-4">
             <h3 class="text-lg font-semibold mb-2">Thêm biến thể mới</h3>
             <div class="grid grid-cols-4 gap-4">
@@ -394,7 +566,39 @@ onMounted(() => {
               <NInputNumber v-model:value="variantForm.price" placeholder="Giá" :min="0" />
               <NInputNumber v-model:value="variantForm.stock" placeholder="Tồn kho" :min="0" />
             </div>
-            <NButton type="primary" @click="handleAddVariant" class="mt-2">Thêm biến thể</NButton>
+            <div class="mt-3">
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="font-medium">Thuộc tính (tùy chọn)</h4>
+                <NButton size="tiny" quaternary @click="addAttributeRow">Thêm thuộc tính</NButton>
+              </div>
+              <div v-for="(attr, index) in variantAttributes" :key="index" class="grid grid-cols-2 gap-3 mb-2">
+                <NInput v-model:value="attr.key" placeholder="Tên thuộc tính (vd: color, size)" />
+                <div class="flex gap-2">
+                  <NInput v-model:value="attr.value" placeholder="Giá trị (vd: đỏ, M)" />
+                  <NButton size="small" quaternary type="error" @click="removeAttributeRow(index)" :disabled="variantAttributes.length === 1">Xóa</NButton>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 mt-2">
+              <NButton type="primary" @click="handleAddVariant">Thêm biến thể</NButton>
+              <div v-if="!editingProduct" class="text-xs text-gray-500">Biến thể được lưu tạm và sẽ tạo sau khi bạn bấm Lưu sản phẩm.</div>
+            </div>
+          </div>
+          <div v-if="!editingProduct && pendingVariants.length" class="mb-4">
+            <h4 class="font-medium mb-2">Biến thể sẽ tạo mới</h4>
+            <NDataTable
+              size="small"
+              :columns="[
+                { title: 'SKU', key: 'sku' },
+                { title: 'Tên', key: 'name', render: (row) => row.name || '-' },
+                { title: 'Giá', key: 'price', render: (row) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.price) },
+                { title: 'Tồn kho', key: 'stock' },
+                { title: 'Thuộc tính', key: 'attributes', render: (row) => row.attributes ? Object.values(row.attributes).join(' · ') : '-' },
+                { title: 'Thao tác', key: 'actions', render: (_, index) => h(NButton, { size: 'small', type: 'error', onClick: () => handleRemovePendingVariant(index) }, { default: () => 'Xóa' }) },
+              ]"
+              :data="pendingVariants"
+              :bordered="true"
+            />
           </div>
           <div v-if="editingProduct?.variants && editingProduct.variants.length > 0">
             <NDataTable
@@ -409,20 +613,23 @@ onMounted(() => {
             />
           </div>
         </NTabPane>
-        <NTabPane v-if="editingProduct" name="images" tab="Hình ảnh">
+        <NTabPane name="images" tab="Hình ảnh">
           <div class="mb-4">
             <NUpload
               multiple
               :max="10"
-              :on-finish="handleUploadImages"
+              :default-upload="false"
+              :file-list="selectedImages"
+              :on-change="handleImageChange"
               accept="image/*"
             >
-              <NButton>Upload hình ảnh</NButton>
+              <NButton>Chọn hình ảnh</NButton>
             </NUpload>
+            <div v-if="!editingProduct" class="text-xs text-gray-500 mt-1">Ảnh sẽ được tải lên ngay sau khi sản phẩm được tạo.</div>
           </div>
           <div v-if="editingProduct?.images && editingProduct.images.length > 0" class="grid grid-cols-4 gap-4">
             <div v-for="image in editingProduct.images" :key="image.id" class="relative">
-              <NImage :src="image.url" width="100%" height="150" object-fit="cover" />
+              <NImage :src="image.imageUrl" width="100%" height="150" object-fit="cover" />
               <NTag v-if="image.thumbnail" type="success" class="absolute top-2 left-2">Ảnh đại diện</NTag>
               <NButton
                 size="small"
@@ -438,7 +645,7 @@ onMounted(() => {
       </NTabs>
       <template #action>
         <NButton @click="showModal = false">Hủy</NButton>
-        <NButton type="primary" @click="handleSave">Lưu</NButton>
+        <NButton type="primary" :loading="saving" @click="handleSave">Lưu</NButton>
       </template>
     </NModal>
   </div>

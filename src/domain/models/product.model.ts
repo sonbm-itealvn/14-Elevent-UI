@@ -31,6 +31,7 @@ export interface ProductImage {
 export interface ProductVariant {
   id: number;
   sku: string;
+  name?: string;
   price: number;
   stock: number;
   attributes?: Record<string, any>;
@@ -76,6 +77,7 @@ export interface UpdateProductRequest {
 
 export interface CreateVariantRequest {
   sku: string;
+  name?: string;
   price: number;
   stock: number;
   attributes?: Record<string, any>;
@@ -83,6 +85,7 @@ export interface CreateVariantRequest {
 
 export interface UpdateVariantRequest {
   sku?: string;
+  name?: string;
   price?: number;
   stock?: number;
   attributes?: Record<string, any>;

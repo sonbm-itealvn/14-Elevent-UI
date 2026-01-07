@@ -123,10 +123,11 @@ const columns = [
       return [
         h(NButton, {
           size: 'small',
-          type: 'primary',
-          style: { marginRight: '8px' },
+          circle: true,
+          tertiary: true,
+          quaternary: true,
           onClick: () => handleEdit(row),
-        }, { default: () => 'Sửa', icon: () => h(NIcon, null, { default: () => h(Pencil) }) }),
+        }, { icon: () => h(NIcon, null, { default: () => h(Pencil) }) }),
       ];
     },
   },
