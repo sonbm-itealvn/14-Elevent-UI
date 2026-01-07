@@ -45,6 +45,11 @@ const AdminRoutes: RouteRecordRaw = {
       name: "AdminMedia",
       component: () => import("@/ui/views/admin/media/Media.vue"),
     },
+    {
+      path: "vouchers",
+      name: "AdminVouchers",
+      component: () => import("@/ui/views/admin/vouchers/Vouchers.vue"),
+    },
   ],
 };
 

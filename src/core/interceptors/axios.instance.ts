@@ -15,9 +15,53 @@ const axiosInstance: AxiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config: any) => {
     const accessToken = JwtService.getAccessToken();
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
+
+    // Tìm header X-Cart-Token theo cách không phân biệt hoa thường
+    const headers = config.headers || {};
+    const headerKeys =
+      typeof headers.keys === "function"
+        ? Array.from(headers.keys())
+        : Object.keys(headers);
+
+    // Flag cho phép gửi Authorization cùng X-Cart-Token (dùng cho merge)
+    const allowAuthWithCartToken = headerKeys.some(
+      (key) => key?.toLowerCase() === "x-allow-auth-with-cart-token"
+    );
+
+    // Nếu có flag, loại bỏ flag khỏi headers trước khi gửi
+    if (allowAuthWithCartToken) {
+      if (typeof headers.delete === "function") {
+        headers.delete("X-Allow-Auth-With-Cart-Token");
+      } else {
+        delete (headers as any)["X-Allow-Auth-With-Cart-Token"];
+        delete (headers as any)["x-allow-auth-with-cart-token"];
+      }
     }
+
+    const hasCartToken = headerKeys.some(
+      (key) => key?.toLowerCase() === "x-cart-token"
+    );
+
+    // Guest cart: không gửi Authorization nếu có X-Cart-Token
+    if (hasCartToken && !allowAuthWithCartToken) {
+      if (typeof headers.delete === "function") {
+        headers.delete("Authorization");
+      } else {
+        delete (headers as any).Authorization;
+        delete (headers as any).authorization;
+      }
+      return config;
+    }
+
+    // User cart: thêm Authorization nếu có accessToken
+    if (accessToken) {
+      if (typeof headers.set === "function") {
+        headers.set("Authorization", `Bearer ${accessToken}`);
+      } else {
+        (headers as any).Authorization = `Bearer ${accessToken}`;
+      }
+    }
+
     return config;
   },
   (error: AxiosError) => Promise.reject(error)

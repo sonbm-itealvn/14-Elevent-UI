@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import AuthService from "@/core/services/api/auth.service";
+import JwtService from "@/core/services/storages/jwt.service";
 import type { User } from "@/domain/models/user.model";
 
 const useAuthStore = defineStore("auth", () => {
@@ -56,12 +57,18 @@ const useAuthStore = defineStore("auth", () => {
     } catch (error) {
       console.error("Failed to fetch current user:", error);
       user.value = null;
+      // Xóa token nếu không hợp lệ hoặc đã hết hạn
+      // Không gọi AuthService.logout() vì có thể gây lỗi nếu token không hợp lệ
+      JwtService.clearAllTokens();
     }
   };
 
   const checkAuth = async () => {
     if (AuthService.isAuthenticated() && !user.value) {
       await fetchCurrentUser();
+    } else if (!AuthService.isAuthenticated()) {
+      // Đảm bảo user.value = null khi không có token
+      user.value = null;
     }
   };
 

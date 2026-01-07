@@ -24,6 +24,11 @@ export interface AuthResponse {
   cart?: any;
 }
 
+export interface OAuthLoginUrl {
+  provider: string;
+  authorizationUrl: string;
+}
+
 class AuthService {
   private httpService: HttpService;
 
@@ -74,6 +79,16 @@ class AuthService {
   async getCurrentUser(): Promise<User> {
     const response = await this.httpService.get<User>("/api/users/me");
     return response.data!;
+  }
+
+  /**
+   * Lấy danh sách OAuth login URLs (Google, Facebook, ...)
+   */
+  async getOAuthLoginUrls(): Promise<OAuthLoginUrl[]> {
+    const response = await this.httpService.get<OAuthLoginUrl[]>(
+      "/api/oauth2/login-urls"
+    );
+    return response.data || [];
   }
 
   async refreshToken(): Promise<AuthResponse> {

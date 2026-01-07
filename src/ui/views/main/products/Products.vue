@@ -7,9 +7,11 @@ import CategoryService from '@/core/services/api/category.service';
 import type { CategoryTreeResponse } from '@/domain/models/category.model';
 import { useMessage } from 'naive-ui';
 import { useRoute } from 'vue-router';
+import useCartStore from '@/ui/stores/cart.store';
 
 const message = useMessage();
 const route = useRoute();
+const cartStore = useCartStore();
 
 const allProducts = ref<PublicProduct[]>([]);
 const categories = ref<CategoryTreeResponse[]>([]);
@@ -71,6 +73,11 @@ const applyFilters = () => {
 };
 
 const loadProducts = async () => {
+  // Tránh gọi API khi đang loading
+  if (loading.value) {
+    return;
+  }
+  
   try {
     loading.value = true;
     const params: any = {
@@ -114,16 +121,66 @@ const hasActiveFilters = computed(() => {
 });
 
 // Watch for search query changes with debounce
-let searchTimeout: ReturnType<typeof setTimeout>;
+let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 watch(searchQuery, () => {
-  clearTimeout(searchTimeout);
+  // Clear timeout trước đó nếu có
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  // Chỉ gọi API sau khi user ngừng gõ 500ms
   searchTimeout = setTimeout(() => {
     pagination.value.page = 0;
     loadProducts();
+    searchTimeout = null;
   }, 500);
 });
 
 // Không tự động gọi API khi filter thay đổi, chỉ gọi khi ấn nút "Áp dụng lọc"
+
+// Thêm sản phẩm vào giỏ hàng
+const addingToCart = ref<number | null>(null); // Track product đang được thêm
+
+const handleAddToCart = async (product: PublicProduct) => {
+  // Prevent double click và prevent khi đang loading
+  if (addingToCart.value === product.id || cartStore.loading) {
+    return;
+  }
+  
+  try {
+    addingToCart.value = product.id;
+    
+    // Lấy chi tiết sản phẩm để có variants
+    const productDetail = await PublicProductService.getProductBySlug(product.slug);
+    
+    // Kiểm tra có variants không
+    if (!productDetail.variants || productDetail.variants.length === 0) {
+      message.warning('Sản phẩm này chưa có biến thể để thêm vào giỏ hàng');
+      return;
+    }
+    
+    // Tìm variant đầu tiên có stock > 0
+    const availableVariant = productDetail.variants.find(v => v.stock > 0);
+    
+    if (!availableVariant) {
+      message.warning('Sản phẩm này đã hết hàng');
+      return;
+    }
+    
+    // Thêm vào giỏ hàng với số lượng 1
+    // addItem đã trả về cart mới, không cần gọi loadCart() lại
+    await cartStore.addItem(availableVariant.id, 1);
+    message.success(`Đã thêm "${product.name}" vào giỏ hàng`);
+    
+    // Không cần reload cart vì addItem đã cập nhật cart.value rồi
+    // Cart store sẽ tự động cập nhật totalItems computed
+  } catch (error: any) {
+    console.error('Error adding to cart:', error);
+    const errorMsg = error?.response?.data?.message || error?.message || 'Không thể thêm sản phẩm vào giỏ hàng';
+    message.error(errorMsg);
+  } finally {
+    addingToCart.value = null;
+  }
+};
 
 onMounted(() => {
   // Chỉ load products khi vào trang, không có filter
@@ -199,9 +256,23 @@ onMounted(() => {
       <!-- Filter Panel -->
       <div
         v-show="showFilters"
-        class="mt-6 p-6 bg-white border border-neutral-200 shadow-sm"
+        class="mt-6 p-6 bg-white border border-neutral-200 shadow-sm rounded-2xl"
       >
-        <div class="grid gap-6 md:grid-cols-2">
+        <div class="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <p class="text-base font-semibold text-neutral-900">Bộ lọc nâng cao</p>
+            <p class="text-sm text-neutral-500">Chọn danh mục hoặc nhập thương hiệu, áp dụng để xem kết quả</p>
+          </div>
+          <button
+            @click="clearFilters"
+            class="px-4 py-2 text-sm font-semibold text-neutral-700 border border-neutral-300 rounded-lg flex items-center gap-2 hover:bg-neutral-50 transition-colors"
+          >
+            <X class="h-5 w-5" />
+            Xóa nhanh
+          </button>
+        </div>
+
+        <div class="grid gap-6 md:grid-cols-[1.2fr_1fr]">
           <!-- Category Filter -->
           <div>
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-900 mb-3">
@@ -210,14 +281,17 @@ onMounted(() => {
             <div v-if="loadingCategories" class="text-sm text-neutral-500">
               Đang tải danh mục...
             </div>
-            <div v-else class="flex flex-wrap gap-2 max-h-60 overflow-y-auto">
+            <div
+              v-else
+              class="grid grid-cols-2 lg:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1"
+            >
               <button
                 @click="selectedCategory = null"
                 :class="[
-                  'px-4 py-2 text-sm font-semibold uppercase transition-colors rounded',
+                  'px-4 py-2 text-sm font-semibold rounded-full border transition-colors text-left',
                   !selectedCategory
-                    ? 'bg-[#b3000f] text-white'
-                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                    ? 'bg-[#b3000f] border-[#b3000f] text-white'
+                    : 'bg-white border-neutral-200 text-neutral-700 hover:border-neutral-300'
                 ]"
               >
                 Tất cả
@@ -226,10 +300,10 @@ onMounted(() => {
                 <button
                   @click="selectedCategory = selectedCategory === category.slug ? null : category.slug"
                   :class="[
-                    'px-4 py-2 text-sm font-semibold uppercase transition-colors rounded',
+                    'px-4 py-2 text-sm font-semibold rounded-full border transition-colors text-left',
                     selectedCategory === category.slug
-                      ? 'bg-[#b3000f] text-white'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      ? 'bg-[#b3000f] border-[#b3000f] text-white'
+                      : 'bg-white border-neutral-200 text-neutral-700 hover:border-neutral-300'
                   ]"
                 >
                   {{ category.name }}
@@ -240,10 +314,10 @@ onMounted(() => {
                   :key="child.id"
                   @click="selectedCategory = selectedCategory === child.slug ? null : child.slug"
                   :class="[
-                    'px-4 py-2 text-sm font-semibold transition-colors rounded ml-4',
+                    'px-4 py-2 text-sm font-medium rounded-full border transition-colors text-left',
                     selectedCategory === child.slug
-                      ? 'bg-[#b3000f] text-white'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      ? 'bg-[#b3000f] border-[#b3000f] text-white'
+                      : 'bg-white border-neutral-200 text-neutral-700 hover:border-neutral-300'
                   ]"
                 >
                   {{ child.name }}
@@ -257,27 +331,44 @@ onMounted(() => {
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-900 mb-3">
               Thương hiệu
             </h3>
-            <input
-              v-model="selectedBrand"
-              type="text"
-              placeholder="Nhập tên thương hiệu..."
-              class="w-full px-4 py-2 border border-neutral-300 focus:border-[#b3000f] focus:outline-none focus:ring-2 focus:ring-red-500/20 bg-white text-neutral-900"
-            />
-            <p class="mt-1 text-xs text-neutral-500">Nhấn Enter hoặc thay đổi để áp dụng</p>
+            <div class="flex items-center gap-3">
+              <div class="relative flex-1">
+                <input
+                  v-model="selectedBrand"
+                  type="text"
+                  placeholder="Nhập tên thương hiệu và nhấn Enter"
+                  class="w-full pl-4 pr-10 py-3 border border-neutral-300 rounded-lg focus:border-[#b3000f] focus:outline-none focus:ring-2 focus:ring-red-500/10 bg-white text-neutral-900"
+                />
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                  ⏎
+                </span>
+              </div>
+              <button
+                @click="selectedBrand = ''"
+                class="px-3 py-3 border border-neutral-200 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
+              >
+                Xóa
+              </button>
+            </div>
+            <p class="mt-2 text-xs text-neutral-500">
+              Gợi ý: nhập vài ký tự, nhấn Enter để áp dụng
+            </p>
           </div>
         </div>
 
         <!-- Action Buttons -->
-        <div class="mt-4 pt-4 border-t border-neutral-200 flex gap-3">
+        <div
+          class="mt-6 pt-4 border-t border-neutral-200 flex flex-col md:flex-row gap-3"
+        >
           <button
             @click="applyFilters"
-            class="flex-1 px-6 py-3 bg-[#b3000f] hover:bg-[#c00015] text-white font-semibold uppercase text-sm transition-colors"
+            class="flex-1 px-6 py-3 bg-[#b3000f] hover:bg-[#c00015] text-white font-semibold uppercase text-sm transition-colors rounded-lg"
           >
             Áp dụng lọc
           </button>
           <button
             @click="clearFilters"
-            class="px-6 py-3 bg-white border border-neutral-300 text-neutral-700 font-semibold uppercase text-sm flex items-center justify-center gap-2 hover:bg-neutral-50 transition-colors"
+            class="px-6 py-3 bg-white border border-neutral-300 text-neutral-700 font-semibold uppercase text-sm flex items-center justify-center gap-2 hover:bg-neutral-50 transition-colors rounded-lg"
           >
             <X class="h-5 w-5" />
             Xóa bộ lọc
@@ -355,9 +446,17 @@ onMounted(() => {
                 <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
               </div>
               <button
-                class="h-9 w-9 flex items-center justify-center border border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white transition-all duration-200"
+                @click="handleAddToCart(item)"
+                :disabled="addingToCart === item.id || cartStore.loading"
+                :class="[
+                  'h-9 w-9 flex items-center justify-center border transition-all duration-200',
+                  addingToCart === item.id || cartStore.loading
+                    ? 'border-neutral-300 bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                    : 'border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white cursor-pointer'
+                ]"
               >
-                🛒
+                <span v-if="addingToCart === item.id">⏳</span>
+                <span v-else>🛒</span>
               </button>
             </div>
           </div>

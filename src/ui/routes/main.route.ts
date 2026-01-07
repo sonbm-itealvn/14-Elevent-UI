@@ -46,6 +46,11 @@ const MainRoutes: RouteRecordRaw = {
             meta: {
                 requiresAuth: true,
             },
+        },
+        {
+            path: "/cart",
+            name: "Cart",
+            component: () => import("@/ui/views/main/cart/Cart.vue"),
         }
     ],
 };

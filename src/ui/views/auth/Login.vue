@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { Mail, Lock, BrandGoogle, BrandFacebook } from '@vicons/tabler';
 import useAuthStore from '@/ui/stores/auth.store';
+import useCartStore from '@/ui/stores/cart.store';
+import StorageService from '@/core/services/storages/storage.service';
+import AuthService from '@/core/services/api/auth.service';
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
+const cartStore = useCartStore();
+
+const CART_TOKEN_KEY = 'cartToken';
 
 const formData = ref({
   email: '',
@@ -16,6 +22,7 @@ const formData = ref({
 const showPassword = ref(false);
 const isLoading = ref(false);
 const errorMessage = ref('');
+const oauthUrls = ref<Record<string, string>>({});
 
 const handleLogin = async (e: Event) => {
   e.preventDefault();
@@ -23,7 +30,20 @@ const handleLogin = async (e: Event) => {
   isLoading.value = true;
 
   try {
-    await authStore.login(formData.value.email, formData.value.password);
+    // Lấy cartToken nếu có (guest cart) - lấy trước khi đăng nhập
+    const cartToken = StorageService.getLocalStorageItem(CART_TOKEN_KEY) || undefined;
+    
+    // Đăng nhập với cartToken
+    // Backend sẽ tự động merge guest cart vào user cart trong login endpoint
+    await authStore.login(formData.value.email, formData.value.password, cartToken);
+    
+    // Sau khi đăng nhập thành công, XÓA cartToken ngay lập tức
+    // để đảm bảo các request sau chỉ gửi JWT, không gửi X-Cart-Token
+    // Backend sẽ tự động merge nếu có cả JWT và X-Cart-Token trong các request tiếp theo
+    StorageService.removeLocalStorageItem(CART_TOKEN_KEY);
+    
+    // Load cart để lấy user cart (đã được merge từ backend)
+    await cartStore.loadCart();
     
     // Get redirect path from query or default based on role
     const redirect = route.query.redirect as string;
@@ -43,20 +63,47 @@ const handleLogin = async (e: Event) => {
 };
 
 const handleGoogleLogin = () => {
-  // TODO: Implement Google OAuth login
-  console.log('Google login');
-  // window.location.href = '/api/oauth2/authorize/google';
+  redirectToProvider('GOOGLE');
 };
 
 const handleFacebookLogin = () => {
-  // TODO: Implement Facebook OAuth login
-  console.log('Facebook login');
-  // window.location.href = '/api/oauth2/authorize/facebook';
+  redirectToProvider('FACEBOOK');
 };
 
 const goToRegister = () => {
   router.push('/auth/register');
 };
+
+const loadOAuthLoginUrls = async () => {
+  try {
+    const urls = await AuthService.getOAuthLoginUrls();
+    oauthUrls.value = urls.reduce<Record<string, string>>((acc, cur) => {
+      // Normalize provider key to uppercase to match button handlers
+      const key = (cur.provider || '').toString().toUpperCase();
+      acc[key] = cur.authorizationUrl;
+      return acc;
+    }, {});
+  } catch (error: any) {
+    console.error('Failed to load OAuth login URLs:', error);
+  }
+};
+
+const redirectToProvider = async (provider: 'GOOGLE' | 'FACEBOOK') => {
+  const key = provider.toUpperCase();
+  if (!oauthUrls.value[key]) {
+    await loadOAuthLoginUrls();
+  }
+  const targetUrl = oauthUrls.value[key];
+  if (targetUrl) {
+    window.location.href = targetUrl;
+  } else {
+    errorMessage.value = 'Không lấy được đường dẫn đăng nhập ' + provider;
+  }
+};
+
+onMounted(() => {
+  loadOAuthLoginUrls();
+});
 </script>
 
 <template>

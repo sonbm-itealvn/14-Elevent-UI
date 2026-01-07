@@ -2,8 +2,15 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { Mail, Lock, User, Phone, BrandGoogle, BrandFacebook } from '@vicons/tabler';
+import useAuthStore from '@/ui/stores/auth.store';
+import useCartStore from '@/ui/stores/cart.store';
+import StorageService from '@/core/services/storages/storage.service';
 
 const router = useRouter();
+const authStore = useAuthStore();
+const cartStore = useCartStore();
+
+const CART_TOKEN_KEY = 'cartToken';
 
 const formData = ref({
   fullName: '',
@@ -43,21 +50,35 @@ const handleRegister = async (e: Event) => {
   isLoading.value = true;
 
   try {
-    // TODO: Implement register API call
-    // const response = await authService.register(formData.value);
-    console.log('Register attempt:', formData.value);
+    // Lấy cartToken nếu có (guest cart) - lấy trước khi đăng ký
+    const cartToken = StorageService.getLocalStorageItem(CART_TOKEN_KEY) || undefined;
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Đăng ký với cartToken
+    // Backend sẽ tự động merge guest cart vào user cart trong register endpoint
+    await authStore.register(
+      formData.value.email,
+      formData.value.password,
+      formData.value.fullName,
+      formData.value.phone,
+      cartToken
+    );
+    
+    // Sau khi đăng ký thành công, XÓA cartToken ngay lập tức
+    // để đảm bảo các request sau chỉ gửi JWT, không gửi X-Cart-Token
+    // Backend sẽ tự động merge nếu có cả JWT và X-Cart-Token trong các request tiếp theo
+    StorageService.removeLocalStorageItem(CART_TOKEN_KEY);
+    
+    // Load cart để lấy user cart (đã được merge từ backend)
+    await cartStore.loadCart();
     
     successMessage.value = 'Đăng ký thành công! Đang chuyển hướng...';
     
-    // Redirect to login after successful registration
+    // Redirect to home after successful registration
     setTimeout(() => {
-      router.push('/auth/login');
+      router.push({ name: 'Home' });
     }, 1500);
   } catch (error: any) {
-    errorMessage.value = error?.message || 'Đăng ký thất bại. Vui lòng thử lại.';
+    errorMessage.value = error?.response?.data?.message || error?.message || 'Đăng ký thất bại. Vui lòng thử lại.';
   } finally {
     isLoading.value = false;
   }

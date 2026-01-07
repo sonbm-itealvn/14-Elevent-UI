@@ -3,8 +3,10 @@ import { ref, onMounted } from 'vue';
 import PublicProductService from '@/core/services/api/public-product.service';
 import type { PublicProduct } from '@/core/services/api/public-product.service';
 import { useMessage } from 'naive-ui';
+import useCartStore from '@/ui/stores/cart.store';
 
 const message = useMessage();
+const cartStore = useCartStore();
 const heroImage =
   "https://images.unsplash.com/photo-1545134969-8debd725b007?auto=format&fit=crop&w=1600&q=80";
 
@@ -42,6 +44,47 @@ const loadPromotionProducts = async () => {
   } catch (error: any) {
     console.error('Error loading promotion products:', error);
     message.error('Lỗi khi tải sản phẩm khuyến mãi');
+  }
+};
+
+// Thêm sản phẩm vào giỏ hàng
+const addingToCart = ref<number | null>(null); // Track product đang được thêm
+
+const handleAddToCart = async (product: PublicProduct) => {
+  if (addingToCart.value === product.id) return; // Prevent double click
+  
+  try {
+    addingToCart.value = product.id;
+    
+    // Lấy chi tiết sản phẩm để có variants
+    const productDetail = await PublicProductService.getProductBySlug(product.slug);
+    
+    // Kiểm tra có variants không
+    if (!productDetail.variants || productDetail.variants.length === 0) {
+      message.warning('Sản phẩm này chưa có biến thể để thêm vào giỏ hàng');
+      return;
+    }
+    
+    // Tìm variant đầu tiên có stock > 0
+    const availableVariant = productDetail.variants.find(v => v.stock > 0);
+    
+    if (!availableVariant) {
+      message.warning('Sản phẩm này đã hết hàng');
+      return;
+    }
+    
+    // Thêm vào giỏ hàng với số lượng 1
+    await cartStore.addItem(availableVariant.id, 1);
+    message.success(`Đã thêm "${product.name}" vào giỏ hàng`);
+    
+    // Reload cart để cập nhật số lượng trên header
+    await cartStore.loadCart();
+  } catch (error: any) {
+    console.error('Error adding to cart:', error);
+    const errorMsg = error?.response?.data?.message || error?.message || 'Không thể thêm sản phẩm vào giỏ hàng';
+    message.error(errorMsg);
+  } finally {
+    addingToCart.value = null;
   }
 };
 
@@ -186,9 +229,18 @@ const newsList = [
           <div class="flex items-center justify-between pt-2">
             <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
             <button
-              class="flex items-center gap-2 px-4 py-2 bg-black text-white uppercase text-sm font-semibold hover:bg-neutral-800 transition-colors duration-200"
+              @click="handleAddToCart(item)"
+              :disabled="addingToCart === item.id || cartStore.loading"
+              :class="[
+                'flex items-center gap-2 px-4 py-2 uppercase text-sm font-semibold transition-colors duration-200',
+                addingToCart === item.id || cartStore.loading
+                  ? 'bg-neutral-400 text-white cursor-not-allowed'
+                  : 'bg-black text-white hover:bg-neutral-800 cursor-pointer'
+              ]"
             >
-              <span class="text-xs">Add</span>
+              <span class="text-xs">
+                {{ addingToCart === item.id ? 'Đang thêm...' : 'Add' }}
+              </span>
             </button>
           </div>
         </div>
@@ -234,9 +286,17 @@ const newsList = [
               <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
             </div>
             <button
-              class="h-9 w-9 flex items-center justify-center border border-neutral-300 hover:border-neutral-500 transition-colors duration-200"
+              @click="handleAddToCart(item)"
+              :disabled="addingToCart === item.id || cartStore.loading"
+              :class="[
+                'h-9 w-9 flex items-center justify-center border transition-colors duration-200',
+                addingToCart === item.id || cartStore.loading
+                  ? 'border-neutral-300 bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                  : 'border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white cursor-pointer'
+              ]"
             >
-              🛒
+              <span v-if="addingToCart === item.id">⏳</span>
+              <span v-else>🛒</span>
             </button>
           </div>
         </div>

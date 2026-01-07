@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, ref, h } from 'vue';
+import { computed, ref, h, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { NLayoutHeader, NSpace, NDropdown, NButton } from 'naive-ui';
+import { NLayoutHeader, NSpace, NDropdown, NButton, NBadge } from 'naive-ui';
 import Logo from '@/shared/components/logo/Logo.vue';
 import Button from '@/shared/components/button/Button.vue';
 import Avatar from '@/shared/components/avatar/Avatar.vue';
 import { Moon, Sun, Menu2, Search, ShoppingCart, User } from '@vicons/tabler';
 import useThemeStore from '@/ui/stores/theme.store';
 import useAuthStore from '@/ui/stores/auth.store';
+import useCartStore from '@/ui/stores/cart.store';
 import HeaderMenu from './HeaderMenu.vue';
 import { isDesktop } from '@/shared/composable/useWindowResize';
 import Language from '../language/Language.vue';
@@ -15,6 +16,7 @@ import type { Header } from '@/core/models/header.model';
 
 const themeStore = useThemeStore();
 const authStore = useAuthStore();
+const cartStore = useCartStore();
 const router = useRouter();
 const theme = computed(() => themeStore.getTheme);
 const handleThemeToggle = () => themeStore.setTheme();
@@ -26,6 +28,18 @@ const props = defineProps<{
 const handleLoginClick = () => {
   router.push({ name: 'Login' });
 };
+
+const handleCartClick = () => {
+  router.push({ name: 'Cart' });
+};
+
+// Load cart khi component mount (chỉ nếu chưa có cart data)
+onMounted(async () => {
+  // Chỉ load cart nếu chưa có data hoặc đang không loading
+  if (!cartStore.cart && !cartStore.loading) {
+    await cartStore.loadCart();
+  }
+});
 
 const dropdownOptions = [
   {
@@ -78,11 +92,16 @@ const dropdownOptions = [
             <Search />
           </template>
         </Button>
-        <Button class="h-11 w-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 !border-none">
-          <template #icon>
-            <ShoppingCart />
-          </template>
-        </Button>
+        <n-badge :value="cartStore.totalItems" :show-zero="false" :max="99">
+          <Button 
+            class="h-11 w-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 !border-none relative"
+            @click="handleCartClick"
+          >
+            <template #icon>
+              <ShoppingCart />
+            </template>
+          </Button>
+        </n-badge>
         <Language/>
         <Button
           class="h-11 w-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 !border-none"
