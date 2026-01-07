@@ -36,26 +36,25 @@ axiosInstance.interceptors.response.use(
         const refreshToken = JwtService.getRefreshToken();
         if (!refreshToken) {
           JwtService.clearAllTokens();
-          window.location.href = "/login"; 
+          window.location.href = "/auth/login"; 
           return Promise.reject(error);
         }
 
         const response = await axios.post(
-          `${API_BASE_URL}/auth/refresh`,
-          {},
+          `${API_BASE_URL}/api/auth/refresh`,
+          { refreshToken },
           {
             headers: {
-              "Authorization": `Bearer ${accessToken}`,
-              "x-refresh-token": refreshToken,
+              "Content-Type": "application/json",
             },
           }
         );
 
-        if (response.status === 200) {
-          const { accessToken, refreshToken } = response.data;
-          JwtService.setAccessToken(accessToken);
-          JwtService.setRefreshToken(refreshToken);
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        if (response.status === 200 && response.data.success) {
+          const authData = response.data.data;
+          JwtService.setAccessToken(authData.accessToken);
+          JwtService.setRefreshToken(authData.refreshToken);
+          originalRequest.headers.Authorization = `Bearer ${authData.accessToken}`;
           return axiosInstance(originalRequest);
         }
 

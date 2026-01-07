@@ -1,185 +1,133 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { Search, Filter, X } from '@vicons/tabler';
+import PublicProductService from '@/core/services/api/public-product.service';
+import type { PublicProduct } from '@/core/services/api/public-product.service';
+import CategoryService from '@/core/services/api/category.service';
+import type { CategoryTreeResponse } from '@/domain/models/category.model';
+import { useMessage } from 'naive-ui';
+import { useRoute } from 'vue-router';
 
-// Sample products data
-const allProducts = ref([
-  {
-    id: 1,
-    title: "Premium Sushi Set",
-    jpTitle: "プレミアム寿司セット",
-    category: "FOOD",
-    price: "450.000 đ",
-    oldPrice: null,
-    tag: "NEW",
-    desc: "Freshly made sushi set with premium ingredients",
-    image: "https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 2,
-    title: "Traditional Ramen",
-    jpTitle: "ラーメン",
-    category: "FOOD",
-    price: "120.000 đ",
-    oldPrice: null,
-    tag: "NEW",
-    desc: "Rich and flavorful traditional Japanese ramen",
-    image: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 3,
-    title: "Matcha Tea Set",
-    jpTitle: "抹茶セット",
-    category: "DRINK",
-    price: "180.000 đ",
-    oldPrice: null,
-    tag: "NEW",
-    desc: "Premium matcha tea powder from Kyoto",
-    image: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 4,
-    title: "Premium Sake",
-    jpTitle: "プレミアム日本酒",
-    category: "DRINK",
-    price: "350.000 đ",
-    oldPrice: null,
-    tag: "NEW",
-    desc: "Authentic Japanese sake from premium breweries",
-    image: "https://images.unsplash.com/photo-1481391204139-7c1d3d98adf1?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 5,
-    title: "Onigiri Combo",
-    jpTitle: "おにぎりセット",
-    category: "SNACK",
-    price: "90.000 đ",
-    oldPrice: "120.000 đ",
-    tag: "SALE",
-    desc: "Delicious rice balls with various fillings",
-    image: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80&sat=-50",
-  },
-  {
-    id: 6,
-    title: "Takoyaki Box",
-    jpTitle: "たこ焼きボックス",
-    category: "FOOD",
-    price: "110.000 đ",
-    oldPrice: "140.000 đ",
-    tag: "SALE",
-    desc: "Octopus balls with special sauce",
-    image: "https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 7,
-    title: "Dorayaki Mix",
-    jpTitle: "どら焼きミックス",
-    category: "SNACK",
-    price: "95.000 đ",
-    oldPrice: "120.000 đ",
-    tag: "SALE",
-    desc: "Sweet red bean pancakes",
-    image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80&sat=-30",
-  },
-  {
-    id: 8,
-    title: "Uji Matcha Latte",
-    jpTitle: "宇治抹茶ラテ",
-    category: "DRINK",
-    price: "75.000 đ",
-    oldPrice: "95.000 đ",
-    tag: "SALE",
-    desc: "Creamy matcha latte from Uji",
-    image: "https://images.unsplash.com/photo-1481391032119-d89fee407e44?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 9,
-    title: "Mochi Dessert Box",
-    jpTitle: "もちデザート",
-    category: "SNACK",
-    price: "150.000 đ",
-    oldPrice: null,
-    tag: "NEW",
-    desc: "Assorted mochi with classic Japanese flavors",
-    image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 10,
-    title: "Wagyu Beef Set",
-    jpTitle: "和牛セット",
-    category: "FOOD",
-    price: "850.000 đ",
-    oldPrice: null,
-    tag: "NEW",
-    desc: "Premium Japanese wagyu beef",
-    image: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 11,
-    title: "Sencha Green Tea",
-    jpTitle: "煎茶",
-    category: "DRINK",
-    price: "125.000 đ",
-    oldPrice: "150.000 đ",
-    tag: "SALE",
-    desc: "High-quality sencha green tea leaves",
-    image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 12,
-    title: "Pocky Assorted",
-    jpTitle: "ポッキー詰め合わせ",
-    category: "SNACK",
-    price: "65.000 đ",
-    oldPrice: null,
-    tag: "NEW",
-    desc: "Assorted flavors of Pocky sticks",
-    image: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=1200&q=80",
-  },
-]);
+const message = useMessage();
+const route = useRoute();
+
+const allProducts = ref<PublicProduct[]>([]);
+const categories = ref<CategoryTreeResponse[]>([]);
+const loading = ref(false);
+const loadingCategories = ref(false);
+const pagination = ref({
+  page: 0,
+  size: 12,
+  total: 0,
+});
 
 const searchQuery = ref('');
 const selectedCategory = ref<string | null>(null);
-const selectedTag = ref<string | null>(null);
+const selectedBrand = ref<string | null>(null);
 const showFilters = ref(false);
 
-const categories = ['FOOD', 'DRINK', 'SNACK'];
-const tags = ['NEW', 'SALE'];
+const formatPrice = (price?: number) => {
+  if (!price) return '0 đ';
+  return new Intl.NumberFormat('vi-VN').format(price) + ' đ';
+};
 
-const filteredProducts = computed(() => {
-  let filtered = allProducts.value;
-
-  // Search filter
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    filtered = filtered.filter(product =>
-      product.title.toLowerCase().includes(query) ||
-      product.jpTitle.toLowerCase().includes(query) ||
-      product.desc.toLowerCase().includes(query)
-    );
+const findCategoryName = (slug: string | null): string | undefined => {
+  if (!slug) return undefined;
+  for (const category of categories.value) {
+    if (category.slug === slug) return category.name;
+    if (category.children) {
+      const child = category.children.find(c => c.slug === slug);
+      if (child) return child.name;
+    }
   }
+  return undefined;
+};
 
-  // Category filter
-  if (selectedCategory.value) {
-    filtered = filtered.filter(product => product.category === selectedCategory.value);
+const loadCategories = async () => {
+  try {
+    loadingCategories.value = true;
+    const data = await CategoryService.getCategoryTree();
+    categories.value = data;
+  } catch (error: any) {
+    console.error('Error loading categories:', error);
+    message.error('Lỗi khi tải danh sách danh mục');
+  } finally {
+    loadingCategories.value = false;
   }
+};
 
-  // Tag filter
-  if (selectedTag.value) {
-    filtered = filtered.filter(product => product.tag === selectedTag.value);
+const handleFilterToggle = () => {
+  showFilters.value = !showFilters.value;
+  if (showFilters.value && categories.value.length === 0) {
+    // Chỉ load categories khi mở filter panel lần đầu
+    loadCategories();
   }
+};
 
-  return filtered;
-});
+const applyFilters = () => {
+  pagination.value.page = 0;
+  loadProducts();
+  showFilters.value = false; // Đóng filter panel sau khi áp dụng
+};
+
+const loadProducts = async () => {
+  try {
+    loading.value = true;
+    const params: any = {
+      page: pagination.value.page,
+      size: pagination.value.size,
+    };
+    
+    if (searchQuery.value) {
+      params.keyword = searchQuery.value;
+    }
+    
+    if (selectedCategory.value) {
+      params.categorySlug = selectedCategory.value;
+    }
+    
+    if (selectedBrand.value) {
+      params.brand = selectedBrand.value;
+    }
+    
+    const response = await PublicProductService.getProducts(params);
+    allProducts.value = response.content;
+    pagination.value.total = response.totalElements;
+  } catch (error: any) {
+    console.error('Error loading products:', error);
+    message.error('Lỗi khi tải danh sách sản phẩm');
+  } finally {
+    loading.value = false;
+  }
+};
 
 const clearFilters = () => {
   searchQuery.value = '';
   selectedCategory.value = null;
-  selectedTag.value = null;
+  selectedBrand.value = null;
+  pagination.value.page = 0;
+  loadProducts();
 };
 
 const hasActiveFilters = computed(() => {
-  return searchQuery.value || selectedCategory.value || selectedTag.value;
+  return searchQuery.value || selectedCategory.value || selectedBrand.value;
+});
+
+// Watch for search query changes with debounce
+let searchTimeout: ReturnType<typeof setTimeout>;
+watch(searchQuery, () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    pagination.value.page = 0;
+    loadProducts();
+  }, 500);
+});
+
+// Không tự động gọi API khi filter thay đổi, chỉ gọi khi ấn nút "Áp dụng lọc"
+
+onMounted(() => {
+  // Chỉ load products khi vào trang, không có filter
+  loadProducts();
 });
 </script>
 
@@ -221,7 +169,7 @@ const hasActiveFilters = computed(() => {
 
         <!-- Filter Toggle Button (Mobile) -->
         <button
-          @click="showFilters = !showFilters"
+          @click="handleFilterToggle"
           class="md:hidden px-6 py-3 bg-black text-white font-semibold uppercase text-sm flex items-center gap-2 hover:bg-neutral-800 transition-colors"
         >
           <Filter class="h-5 w-5" />
@@ -231,7 +179,7 @@ const hasActiveFilters = computed(() => {
         <!-- Filter Buttons (Desktop) -->
         <div class="hidden md:flex items-center gap-3">
           <button
-            @click="showFilters = !showFilters"
+            @click="handleFilterToggle"
             class="px-6 py-3 bg-black text-white font-semibold uppercase text-sm flex items-center gap-2 hover:bg-neutral-800 transition-colors"
           >
             <Filter class="h-5 w-5" />
@@ -259,52 +207,77 @@ const hasActiveFilters = computed(() => {
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-900 mb-3">
               Danh mục
             </h3>
-            <div class="flex flex-wrap gap-2">
+            <div v-if="loadingCategories" class="text-sm text-neutral-500">
+              Đang tải danh mục...
+            </div>
+            <div v-else class="flex flex-wrap gap-2 max-h-60 overflow-y-auto">
               <button
-                v-for="category in categories"
-                :key="category"
-                @click="selectedCategory = selectedCategory === category ? null : category"
+                @click="selectedCategory = null"
                 :class="[
-                  'px-4 py-2 text-sm font-semibold uppercase transition-colors',
-                  selectedCategory === category
+                  'px-4 py-2 text-sm font-semibold uppercase transition-colors rounded',
+                  !selectedCategory
                     ? 'bg-[#b3000f] text-white'
                     : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                 ]"
               >
-                {{ category }}
+                Tất cả
               </button>
+              <template v-for="category in categories" :key="category.id">
+                <button
+                  @click="selectedCategory = selectedCategory === category.slug ? null : category.slug"
+                  :class="[
+                    'px-4 py-2 text-sm font-semibold uppercase transition-colors rounded',
+                    selectedCategory === category.slug
+                      ? 'bg-[#b3000f] text-white'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  ]"
+                >
+                  {{ category.name }}
+                </button>
+                <!-- Hiển thị children nếu có -->
+                <button
+                  v-for="child in category.children"
+                  :key="child.id"
+                  @click="selectedCategory = selectedCategory === child.slug ? null : child.slug"
+                  :class="[
+                    'px-4 py-2 text-sm font-semibold transition-colors rounded ml-4',
+                    selectedCategory === child.slug
+                      ? 'bg-[#b3000f] text-white'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  ]"
+                >
+                  {{ child.name }}
+                </button>
+              </template>
             </div>
           </div>
 
-          <!-- Tag Filter -->
+          <!-- Brand Filter -->
           <div>
             <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-900 mb-3">
-              Nhãn
+              Thương hiệu
             </h3>
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="tag in tags"
-                :key="tag"
-                @click="selectedTag = selectedTag === tag ? null : tag"
-                :class="[
-                  'px-4 py-2 text-sm font-semibold uppercase transition-colors',
-                  selectedTag === tag
-                    ? 'bg-[#b3000f] text-white'
-                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                ]"
-              >
-                {{ tag }}
-              </button>
-            </div>
+            <input
+              v-model="selectedBrand"
+              type="text"
+              placeholder="Nhập tên thương hiệu..."
+              class="w-full px-4 py-2 border border-neutral-300 focus:border-[#b3000f] focus:outline-none focus:ring-2 focus:ring-red-500/20 bg-white text-neutral-900"
+            />
+            <p class="mt-1 text-xs text-neutral-500">Nhấn Enter hoặc thay đổi để áp dụng</p>
           </div>
         </div>
 
-        <!-- Clear Filters (Mobile) -->
-        <div class="mt-4 pt-4 border-t border-neutral-200 md:hidden">
+        <!-- Action Buttons -->
+        <div class="mt-4 pt-4 border-t border-neutral-200 flex gap-3">
           <button
-            v-if="hasActiveFilters"
+            @click="applyFilters"
+            class="flex-1 px-6 py-3 bg-[#b3000f] hover:bg-[#c00015] text-white font-semibold uppercase text-sm transition-colors"
+          >
+            Áp dụng lọc
+          </button>
+          <button
             @click="clearFilters"
-            class="w-full px-6 py-3 bg-white border border-neutral-300 text-neutral-700 font-semibold uppercase text-sm flex items-center justify-center gap-2 hover:bg-neutral-50 transition-colors"
+            class="px-6 py-3 bg-white border border-neutral-300 text-neutral-700 font-semibold uppercase text-sm flex items-center justify-center gap-2 hover:bg-neutral-50 transition-colors"
           >
             <X class="h-5 w-5" />
             Xóa bộ lọc
@@ -319,13 +292,13 @@ const hasActiveFilters = computed(() => {
           v-if="selectedCategory"
           class="px-3 py-1 bg-[#b3000f] text-white text-sm font-semibold uppercase"
         >
-          {{ selectedCategory }}
+          Danh mục: {{ findCategoryName(selectedCategory) || selectedCategory }}
         </span>
         <span
-          v-if="selectedTag"
+          v-if="selectedBrand"
           class="px-3 py-1 bg-[#b3000f] text-white text-sm font-semibold uppercase"
         >
-          {{ selectedTag }}
+          Thương hiệu: {{ selectedBrand }}
         </span>
         <span
           v-if="searchQuery"
@@ -343,48 +316,43 @@ const hasActiveFilters = computed(() => {
       <!-- Results Count -->
       <div class="mb-8 flex items-center justify-between">
         <p class="text-neutral-600">
-          Tìm thấy <span class="font-semibold text-[#b3000f]">{{ filteredProducts.length }}</span> sản phẩm
+          Tìm thấy <span class="font-semibold text-[#b3000f]">{{ pagination.total }}</span> sản phẩm
         </p>
       </div>
 
+      <!-- Loading State -->
+      <div v-if="loading" class="text-center py-16">
+        <p class="text-neutral-500">Đang tải sản phẩm...</p>
+      </div>
+
       <!-- Products Grid -->
-      <div v-if="filteredProducts.length > 0" class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div v-else-if="allProducts.length > 0" class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <div
-          v-for="item in filteredProducts"
+          v-for="item in allProducts"
           :key="item.id"
           class="border border-neutral-200 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col group"
         >
           <div class="relative overflow-hidden">
             <img
-              :src="item.image"
-              :alt="item.title"
+              :src="item.thumbnail || 'https://via.placeholder.com/400'"
+              :alt="item.name"
               class="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
             />
-            <div
-              class="absolute top-3 left-3 px-3 py-1 text-sm font-semibold rounded text-white"
-              :class="item.tag === 'SALE' ? 'bg-[#b3000f]' : 'bg-black'"
-            >
-              {{ item.tag }}
+            <div class="absolute top-3 left-3 px-3 py-1 text-sm font-semibold rounded text-white bg-black">
+              NEW
             </div>
           </div>
           <div class="p-5 flex-1 flex flex-col gap-3">
-            <div class="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
-              {{ item.category }}
+            <div v-if="item.brand" class="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+              {{ item.brand }}
             </div>
             <div>
-              <h3 class="text-lg font-semibold text-neutral-900 mb-1">{{ item.title }}</h3>
-              <p class="text-sm text-neutral-500">{{ item.jpTitle }}</p>
+              <h3 class="text-lg font-semibold text-neutral-900 mb-1">{{ item.name }}</h3>
+              <p v-if="item.origin" class="text-sm text-neutral-500">{{ item.origin }}</p>
             </div>
-            <p class="text-sm text-neutral-600 leading-relaxed flex-1">{{ item.desc }}</p>
             <div class="flex items-center justify-between pt-2 border-t border-neutral-100">
               <div class="flex items-baseline gap-2">
-                <span class="text-red-600 font-semibold text-lg">{{ item.price }}</span>
-                <span
-                  v-if="item.oldPrice"
-                  class="text-sm text-neutral-400 line-through"
-                >
-                  {{ item.oldPrice }}
-                </span>
+                <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
               </div>
               <button
                 class="h-9 w-9 flex items-center justify-center border border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white transition-all duration-200"

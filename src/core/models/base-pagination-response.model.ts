@@ -1,10 +1,11 @@
 type BasePaginationResponse<T> = {
-    data: T[];
-    pagination: {
-        total: number;
-        page: number;
-        limit: number;
-    };
+    content: T[];
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+    first: boolean;
+    last: boolean;
 }
 
 export type { BasePaginationResponse };

@@ -18,10 +18,52 @@ const router = createRouter({
 });
 
 
-router.beforeEach((to, from, next) => {
-    //check router is here. auth, admin,..... lam deo gi thi lam. check theo meta
-    next();
+import useAuthStore from "@/ui/stores/auth.store";
 
+router.beforeEach(async (to, from, next) => {
+  const authStore = useAuthStore();
+  
+  // Check authentication status
+  await authStore.checkAuth();
+  
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const requiredRoles = to.meta.roles as string[] | undefined;
+  
+  // If route requires auth but user is not authenticated
+  if (requiresAuth && !authStore.isAuthenticated) {
+    next({ name: "Login", query: { redirect: to.fullPath } });
+    return;
+  }
+  
+  // If route requires specific roles (e.g., admin)
+  if (requiredRoles && requiredRoles.length > 0) {
+    if (!authStore.isAuthenticated) {
+      next({ name: "Login", query: { redirect: to.fullPath } });
+      return;
+    }
+    
+    // Check if user has required role (case-insensitive)
+    const userRole = authStore.user?.role?.toUpperCase();
+    const hasRole = requiredRoles.some(role => role.toUpperCase() === userRole);
+    
+    if (!hasRole) {
+      // User doesn't have required role, redirect to home
+      next({ name: "Home" });
+      return;
+    }
+  }
+  
+  // If user is authenticated and trying to access auth pages, redirect based on role
+  if (to.matched.some(record => record.path === "/auth") && authStore.isAuthenticated) {
+    if (authStore.isAdmin) {
+      next({ name: "Dashboard" });
+    } else {
+      next({ name: "Home" });
+    }
+    return;
+  }
+  
+  next();
 });
 
 export default router;

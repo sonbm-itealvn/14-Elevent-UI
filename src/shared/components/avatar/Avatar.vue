@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { NAvatar, NIcon, NDropdown, type DropdownOption } from 'naive-ui';
 import useThemeStore from '@/ui/stores/theme.store';
+import useAuthStore from '@/ui/stores/auth.store';
 import { computed, h, type Component } from 'vue';
 import { useRouter } from 'vue-router';
 import menuAvatarOptions from '@/shared/constants/menu-avatar.constant';
@@ -13,6 +14,7 @@ const props = defineProps<{
 
 // Stores & router
 const themeStore = useThemeStore();
+const authStore = useAuthStore();
 const theme = computed(() => themeStore.getTheme);
 const router = useRouter();
 
@@ -96,7 +98,9 @@ const handleMenuSelect = (key: string | number) => {
   if (keyStr === 'profile') {
     router.push({ name: 'Profile' });
   } else if (keyStr === 'logout') {
-    router.push({ name: 'Login' });
+    authStore.logout().then(() => {
+      router.push({ name: 'Home' });
+    });
   } else if (keyStr === 'settings') {
     console.log('Settings - TODO');
   } else if (keyStr === 'support') {

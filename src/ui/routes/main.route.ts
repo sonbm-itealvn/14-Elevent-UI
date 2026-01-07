@@ -5,7 +5,7 @@ const MainRoutes: RouteRecordRaw = {
     path: "/",
     component: MainLayout,
     meta: {
-        requiresAuth: true,
+        requiresAuth: false, // Public pages
     },
     children: [
         {
@@ -43,6 +43,9 @@ const MainRoutes: RouteRecordRaw = {
             path: "/profile",
             name: "Profile",
             component: () => import("@/ui/views/main/profile/Profile.vue"),
+            meta: {
+                requiresAuth: true,
+            },
         }
     ],
 };

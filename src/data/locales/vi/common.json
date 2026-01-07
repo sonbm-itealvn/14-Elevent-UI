@@ -12,5 +12,12 @@
   "dashboard": "Bảng điều khiển",
   "products": "Sản phẩm",
   "bestsellers": "Bán chạy",
-  "about": "Giới thiệu"
+  "about": "Giới thiệu",
+  "Dashboard": "Bảng điều khiển",
+  "Quản lý người dùng": "Quản lý người dùng",
+  "Quản lý danh mục": "Quản lý danh mục",
+  "Quản lý sản phẩm": "Quản lý sản phẩm",
+  "Quản lý đơn hàng": "Quản lý đơn hàng",
+  "Quản lý hóa đơn": "Quản lý hóa đơn",
+  "Quản lý media": "Quản lý media"
 }

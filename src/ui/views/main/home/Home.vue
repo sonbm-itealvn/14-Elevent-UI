@@ -1,133 +1,56 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import PublicProductService from '@/core/services/api/public-product.service';
+import type { PublicProduct } from '@/core/services/api/public-product.service';
+import { useMessage } from 'naive-ui';
+
+const message = useMessage();
 const heroImage =
   "https://images.unsplash.com/photo-1545134969-8debd725b007?auto=format&fit=crop&w=1600&q=80";
 
-const bestSellers = [
-  {
-    id: 1,
-    title: "Premium Sushi Set",
-    jpTitle: "プレミアム寿司セット",
-    desc: "Freshly made sushi set with premium ingredients",
-    price: "450.000 đ",
-    image:
-      "https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 2,
-    title: "Traditional Ramen",
-    jpTitle: "ラーメン",
-    desc: "Rich and flavorful traditional Japanese ramen",
-    price: "120.000 đ",
-    image:
-      "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 3,
-    title: "Matcha Tea Set",
-    jpTitle: "抹茶セット",
-    desc: "Premium matcha tea powder from Kyoto",
-    price: "180.000 đ",
-    image:
-      "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 4,
-    title: "Mochi Dessert Box",
-    jpTitle: "もちデザート",
-    desc: "Assorted mochi with classic Japanese flavors",
-    price: "150.000 đ",
-    image:
-      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80",
-  },
-];
+const bestSellers = ref<PublicProduct[]>([]);
+const promotionProducts = ref<PublicProduct[]>([]);
+const loading = ref(false);
 
-const promotionProducts = [
-  {
-    id: 1,
-    title: "Premium Sushi Set",
-    jpTitle: "プレミアム寿司セット",
-    category: "FOOD",
-    price: "450.000 đ",
-    tag: "NEW",
-    image:
-      "https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 2,
-    title: "Traditional Ramen",
-    jpTitle: "ラーメン",
-    category: "FOOD",
-    price: "120.000 đ",
-    tag: "NEW",
-    image:
-      "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 3,
-    title: "Matcha Tea Set",
-    jpTitle: "抹茶セット",
-    category: "DRINK",
-    price: "180.000 đ",
-    tag: "NEW",
-    image:
-      "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 4,
-    title: "Premium Sake",
-    jpTitle: "プレミアム日本酒",
-    category: "DRINK",
-    price: "350.000 đ",
-    tag: "NEW",
-    image:
-      "https://images.unsplash.com/photo-1481391204139-7c1d3d98adf1?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 5,
-    title: "Onigiri Combo",
-    jpTitle: "おにぎりセット",
-    category: "SNACK",
-    price: "90.000 đ",
-    tag: "SALE",
-    oldPrice: "120.000 đ",
-    image:
-      "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=80&sat=-50",
-  },
-  {
-    id: 6,
-    title: "Takoyaki Box",
-    jpTitle: "たこ焼きボックス",
-    category: "FOOD",
-    price: "110.000 đ",
-    tag: "SALE",
-    oldPrice: "140.000 đ",
-    image:
-      "https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: 7,
-    title: "Dorayaki Mix",
-    jpTitle: "どら焼きミックス",
-    category: "SNACK",
-    price: "95.000 đ",
-    tag: "SALE",
-    oldPrice: "120.000 đ",
-    image:
-      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80&sat=-30",
-  },
-  {
-    id: 8,
-    title: "Uji Matcha Latte",
-    jpTitle: "宇治抹茶ラテ",
-    category: "DRINK",
-    price: "75.000 đ",
-    tag: "SALE",
-    oldPrice: "95.000 đ",
-    image:
-      "https://images.unsplash.com/photo-1481391032119-d89fee407e44?auto=format&fit=crop&w=1200&q=80",
-  },
-];
+const formatPrice = (price?: number) => {
+  if (!price) return '0 đ';
+  return new Intl.NumberFormat('vi-VN').format(price) + ' đ';
+};
 
+const loadBestSellers = async () => {
+  try {
+    loading.value = true;
+    const products = await PublicProductService.getTopSelling(4);
+    bestSellers.value = products;
+  } catch (error: any) {
+    console.error('Error loading best sellers:', error);
+    message.error('Lỗi khi tải sản phẩm bán chạy');
+  } finally {
+    loading.value = false;
+  }
+};
+
+const loadPromotionProducts = async () => {
+  try {
+    // Load products with pagination, you can filter by tag/category if needed
+    const response = await PublicProductService.getProducts({
+      page: 0,
+      size: 8,
+      sort: 'newest'
+    });
+    promotionProducts.value = response.content;
+  } catch (error: any) {
+    console.error('Error loading promotion products:', error);
+    message.error('Lỗi khi tải sản phẩm khuyến mãi');
+  }
+};
+
+onMounted(() => {
+  loadBestSellers();
+  loadPromotionProducts();
+});
+
+// Mock news data (can be replaced with API later)
 const newsFeatured = [
   {
     id: 1,
@@ -239,27 +162,29 @@ const newsList = [
       <p class="text-neutral-500 text-sm">ベストセラー商品</p>
     </div>
 
-    <div class="max-w-6xl mx-auto grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+    <div v-if="loading" class="max-w-6xl mx-auto text-center py-10">
+      <p class="text-neutral-500">Đang tải...</p>
+    </div>
+    <div v-else-if="bestSellers.length > 0" class="max-w-6xl mx-auto grid gap-8 md:grid-cols-2 lg:grid-cols-4">
       <div
-        v-for="item in bestSellers"
+        v-for="(item, index) in bestSellers"
         :key="item.id"
         class="bg-white shadow-md hover:shadow-lg transition-shadow duration-200 border border-neutral-200 flex flex-col"
       >
         <div class="relative">
-          <img :src="item.image" :alt="item.title" class="w-full h-56 object-cover" />
+          <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="w-full h-56 object-cover" />
           <div class="absolute top-3 left-3 bg-[#b3000f] text-white px-3 py-1 text-sm font-semibold rounded">
-            #{{ item.id }}
+            #{{ index + 1 }}
           </div>
         </div>
 
         <div class="p-5 flex-1 flex flex-col gap-3">
           <div>
-            <h3 class="text-lg font-semibold text-neutral-900 uppercase tracking-wide">{{ item.title }}</h3>
-            <p class="text-sm text-neutral-500">{{ item.jpTitle }}</p>
+            <h3 class="text-lg font-semibold text-neutral-900 uppercase tracking-wide">{{ item.name }}</h3>
+            <p v-if="item.brand" class="text-sm text-neutral-500">{{ item.brand }}</p>
           </div>
-          <p class="text-sm text-neutral-600 leading-relaxed flex-1">{{ item.desc }}</p>
           <div class="flex items-center justify-between pt-2">
-            <span class="text-red-600 font-semibold text-lg">{{ item.price }}</span>
+            <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
             <button
               class="flex items-center gap-2 px-4 py-2 bg-black text-white uppercase text-sm font-semibold hover:bg-neutral-800 transition-colors duration-200"
             >
@@ -268,6 +193,9 @@ const newsList = [
           </div>
         </div>
       </div>
+    </div>
+    <div v-else class="max-w-6xl mx-auto text-center py-10">
+      <p class="text-neutral-500">Không có sản phẩm bán chạy</p>
     </div>
   </section>
 
@@ -288,31 +216,22 @@ const newsList = [
         class="border border-neutral-200 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col"
       >
         <div class="relative">
-          <img :src="item.image" :alt="item.title" class="w-full h-56 object-cover" />
-          <div
-            class="absolute top-3 left-3 bg-black text-white px-3 py-1 text-sm font-semibold rounded"
-            :class="item.tag === 'SALE' ? 'bg-[#b3000f]' : 'bg-black'"
-          >
-            {{ item.tag }}
+          <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="w-full h-56 object-cover" />
+          <div class="absolute top-3 left-3 bg-black text-white px-3 py-1 text-sm font-semibold rounded">
+            NEW
           </div>
         </div>
         <div class="p-5 flex-1 flex flex-col gap-3">
-          <div class="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
-            {{ item.category }}
+          <div v-if="item.brand" class="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+            {{ item.brand }}
           </div>
           <div>
-            <h3 class="text-lg font-semibold text-neutral-900">{{ item.title }}</h3>
-            <p class="text-sm text-neutral-500">{{ item.jpTitle }}</p>
+            <h3 class="text-lg font-semibold text-neutral-900">{{ item.name }}</h3>
+            <p v-if="item.origin" class="text-sm text-neutral-500">{{ item.origin }}</p>
           </div>
           <div class="flex items-center justify-between pt-2">
             <div class="flex items-baseline gap-2">
-              <span class="text-red-600 font-semibold text-lg">{{ item.price }}</span>
-              <span
-                v-if="item.oldPrice"
-                class="text-sm text-neutral-400 line-through"
-              >
-                {{ item.oldPrice }}
-              </span>
+              <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
             </div>
             <button
               class="h-9 w-9 flex items-center justify-center border border-neutral-300 hover:border-neutral-500 transition-colors duration-200"

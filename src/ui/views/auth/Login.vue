@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { Mail, Lock, BrandGoogle, BrandFacebook } from '@vicons/tabler';
+import useAuthStore from '@/ui/stores/auth.store';
 
 const router = useRouter();
+const route = useRoute();
+const authStore = useAuthStore();
 
 const formData = ref({
   email: '',
@@ -20,17 +23,20 @@ const handleLogin = async (e: Event) => {
   isLoading.value = true;
 
   try {
-    // TODO: Implement login API call
-    // const response = await authService.login(formData.value);
-    console.log('Login attempt:', formData.value);
+    await authStore.login(formData.value.email, formData.value.password);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Get redirect path from query or default based on role
+    const redirect = route.query.redirect as string;
     
-    // Redirect to home after successful login
-    router.push('/');
+    if (redirect) {
+      router.push(redirect);
+    } else if (authStore.isAdmin) {
+      router.push({ name: 'Dashboard' });
+    } else {
+      router.push({ name: 'Home' });
+    }
   } catch (error: any) {
-    errorMessage.value = error?.message || 'Đăng nhập thất bại. Vui lòng thử lại.';
+    errorMessage.value = error?.response?.data?.message || error?.message || 'Đăng nhập thất bại. Vui lòng thử lại.';
   } finally {
     isLoading.value = false;
   }

@@ -30,10 +30,15 @@ class HttpService {
         }
     }
 
-    public async upload<T>(url: string, payload: FormData) :Promise<T> {
+    public async upload<T>(url: string, payload: FormData) :Promise<BaseResponse<T>> {
         try {
-            const response = await this.axiosInstance.post<T>(url, payload, { signal: this.controller.signal });
-            return response.data;
+            const response = await this.axiosInstance.post<BaseResponse<T>>(url, payload, { 
+                signal: this.controller.signal,
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            return response.data as BaseResponse<T>;
         } catch (error) {
             throw error;
         }
@@ -57,10 +62,10 @@ class HttpService {
         }
     }
 
-    public async delete<T>(url: string) :Promise<T> {
+    public async delete<T>(url: string) :Promise<BaseResponse<T>> {
         try {
-            const response = await this.axiosInstance.delete<T>(url, { signal: this.controller.signal });
-            return response.data as T;
+            const response = await this.axiosInstance.delete<BaseResponse<T>>(url, { signal: this.controller.signal });
+            return response.data as BaseResponse<T>;
         } catch (error) {
             throw error;
         }
@@ -68,8 +73,9 @@ class HttpService {
 
     public async getPaginated<T>(url: string, params?: Record<string,any> | null) :Promise<BasePaginationResponse<T>> {
         try {
-            const response = await this.axiosInstance.get<BasePaginationResponse<T>>(url, { params, signal: this.controller.signal });
-            return response.data as BasePaginationResponse<T>;
+            const response = await this.axiosInstance.get<BaseResponse<BasePaginationResponse<T>>>(url, { params, signal: this.controller.signal });
+            // API trả về {success: true, data: {content: [], page, size, ...}}
+            return response.data.data!;
         } catch (error) {
             throw error;
         }

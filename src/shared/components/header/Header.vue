@@ -1,23 +1,31 @@
 <script setup lang="ts">
 import { computed, ref, h } from 'vue';
-import { NLayoutHeader, NSpace, NDropdown } from 'naive-ui';
+import { useRouter } from 'vue-router';
+import { NLayoutHeader, NSpace, NDropdown, NButton } from 'naive-ui';
 import Logo from '@/shared/components/logo/Logo.vue';
 import Button from '@/shared/components/button/Button.vue';
 import Avatar from '@/shared/components/avatar/Avatar.vue';
-import { Moon, Sun, Menu2, Search, ShoppingCart } from '@vicons/tabler';
+import { Moon, Sun, Menu2, Search, ShoppingCart, User } from '@vicons/tabler';
 import useThemeStore from '@/ui/stores/theme.store';
+import useAuthStore from '@/ui/stores/auth.store';
 import HeaderMenu from './HeaderMenu.vue';
 import { isDesktop } from '@/shared/composable/useWindowResize';
 import Language from '../language/Language.vue';
 import type { Header } from '@/core/models/header.model';
 
 const themeStore = useThemeStore();
+const authStore = useAuthStore();
+const router = useRouter();
 const theme = computed(() => themeStore.getTheme);
 const handleThemeToggle = () => themeStore.setTheme();
 const showDropdown = ref(false);
 const props = defineProps<{
   items?: Header[];
 }>();
+
+const handleLoginClick = () => {
+  router.push({ name: 'Login' });
+};
 
 const dropdownOptions = [
   {
@@ -84,7 +92,22 @@ const dropdownOptions = [
             <component :is="theme === 'light' ? Moon : Sun" />
           </template>
         </Button>
-        <Avatar />
+        <!-- Show Avatar if authenticated, Login button if not -->
+        <Avatar 
+          v-if="authStore.isAuthenticated && authStore.user"
+          :url="authStore.user.avatar"
+          :name="authStore.user.fullName"
+        />
+        <NButton
+          v-else
+          class="h-11 px-4 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 !border-none text-white"
+          @click="handleLoginClick"
+        >
+          <template #icon>
+            <User class="h-5 w-5 mr-2" />
+          </template>
+          Đăng nhập
+        </NButton>
       </div>
     </n-space>
   </n-layout-header>

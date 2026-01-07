@@ -12,5 +12,12 @@
   "dashboard": "Dashboard",
   "products": "Products",
   "bestsellers": "Best Sellers",
-  "about": "About"
+  "about": "About",
+  "Dashboard": "Dashboard",
+  "Quản lý người dùng": "User Management",
+  "Quản lý danh mục": "Category Management",
+  "Quản lý sản phẩm": "Product Management",
+  "Quản lý đơn hàng": "Order Management",
+  "Quản lý hóa đơn": "Invoice Management",
+  "Quản lý media": "Media Management"
 }

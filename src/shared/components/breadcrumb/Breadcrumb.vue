@@ -69,25 +69,51 @@ const breadcrumbItems = computed(() => {
     const found = findPath(menuOptions, path) ?? [];
     
     if (found.length == 1 && (found[0]?.to === "/" || path === "/admin")) {
-
-        
         return [
             {
                 name: found[0]?.name ?? "Admin",
                 icon: found[0]?.icon ?? Home,
                 to: found[0]?.to ?? path,
-                isActive: found[0]?.to || path,
+                isActive: true,
             },
         ];
+    } else if (found.length > 0) {
+        // Remove duplicates by using a Set to track seen paths
+        const seen = new Set<string>();
+        const result: Crumb[] = [];
+        
+        // Add first item (parent)
+        const firstItem = {
+            name: found[0]?.name ?? "Admin",
+            icon: found[0]?.icon ?? Home,
+            to: found[0]?.to ?? path,
+            isActive: false,
+        };
+        if (!seen.has(firstItem.to)) {
+            seen.add(firstItem.to);
+            result.push(firstItem);
+        }
+        
+        // Add remaining items, skipping duplicates
+        for (const item of found) {
+            if (!seen.has(item.to)) {
+                seen.add(item.to);
+                result.push({
+                    ...item,
+                    isActive: item.to === path,
+                });
+            }
+        }
+        
+        return result;
     } else {
         return [
             {
-                name: found[0]?.name ?? "Admin",
-                icon: found[0]?.icon ?? Home,
-                to: found[0]?.to ?? path,
-                isActive: found[0]?.to || path,
+                name: "Admin",
+                icon: Home,
+                to: path,
+                isActive: true,
             },
-            ...found,
         ];
     }
 });
