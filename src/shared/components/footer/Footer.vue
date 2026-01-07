@@ -6,8 +6,8 @@ import {
   MapPin,
   BrandFacebook,
   BrandInstagram,
-  BrandTwitter,
-  ArrowRight
+  ArrowRight,
+  BrandTiktok
 } from '@vicons/tabler';
 </script>
 
@@ -64,7 +64,7 @@ import {
             <div class="flex items-center gap-2">
               <PhoneCall class="h-5 w-5 text-[#b3000f]" />
               <div>
-                <div class="font-semibold text-white">+84 123 456 789</div>
+                <div class="font-semibold text-white">+84 812 325 555</div>
                 <div class="text-xs text-neutral-400">Mon - Sun: 8:00 - 22:00</div>
               </div>
             </div>
@@ -74,25 +74,30 @@ import {
             </div>
             <div class="flex items-center gap-2">
               <MapPin class="h-5 w-5 text-[#b3000f]" />
-              <span>Hà Nội, Việt Nam</span>
+              <span>Số 13, Bùi Ngọc Dương, Bạch Mai, Hà Nội, Việt Nam</span>
             </div>
           </div>
           <div class="flex items-center gap-3 pt-2">
-            <button class="h-10 w-10 border border-neutral-500 hover:border-white flex items-center justify-center transition-colors">
+            <a href="https://www.facebook.com/share/187u9XAvb2/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer"
+              class="h-10 w-10 border border-neutral-500 hover:border-white flex items-center justify-center transition-colors">
               <BrandFacebook class="h-5 w-5" />
-            </button>
-            <button class="h-10 w-10 border border-neutral-500 hover:border-white flex items-center justify-center transition-colors">
+            </a>
+
+            <a href="https://www.instagram.com/14elevent_jp/?igsh=NjZhZGFob2JzZWdh&utm_source=qr" target="_blank" rel="noopener noreferrer"
+              class="h-10 w-10 border border-neutral-500 hover:border-white flex items-center justify-center transition-colors">
               <BrandInstagram class="h-5 w-5" />
-            </button>
-            <button class="h-10 w-10 border border-neutral-500 hover:border-white flex items-center justify-center transition-colors">
-              <BrandTwitter class="h-5 w-5" />
-            </button>
+            </a>
+
+            <a href="https://www.tiktok.com/@14elevent.jp?_r=1&_t=ZS-92rnoFw1euj" target="_blank" rel="noopener noreferrer"
+              class="h-10 w-10 border border-neutral-500 hover:border-white flex items-center justify-center transition-colors">
+              <BrandTiktok class="h-5 w-5" />
+            </a>
           </div>
         </div>
       </div>
 
       <div class="border-t border-neutral-800 mt-10 pt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 text-sm text-neutral-400">
-        <div>© 2025 Nihon Market. All rights reserved.</div>
+        <div>© 2026 SC Software. All rights reserved.</div>
         <div class="flex items-center gap-4 text-xs uppercase tracking-wide">
           <span class="hover:text-white cursor-pointer">Privacy Policy</span>
           <span class="hover:text-white cursor-pointer">Terms of Service</span>

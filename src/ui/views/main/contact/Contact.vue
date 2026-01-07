@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { PhoneCall, Mail, MapPin, BrandFacebook, BrandInstagram, BrandTwitter, Send, BrandTiktok } from '@vicons/tabler';
+import { PhoneCall, Mail, MapPin, BrandFacebook, BrandInstagram, Send, BrandTiktok } from '@vicons/tabler';
 
 const formData = ref({
   name: '',
@@ -241,7 +241,7 @@ const handleSubmit = (e: Event) => {
                 width="100%"
                 height="100%"
                 style="border:0;"
-                allowfullscreen=""
+                allowfullscreen
                 loading="lazy"
                 referrerpolicy="no-referrer-when-downgrade"
                 title="Bản đồ cửa hàng"

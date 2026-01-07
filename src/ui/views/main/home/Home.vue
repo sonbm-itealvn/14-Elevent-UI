@@ -357,9 +357,8 @@ const newsList = [
             </div>
           </div>
         </div>
-
         <div class="border border-neutral-200 bg-[#f7f7f7] p-6 text-center flex flex-col items-center gap-3">
-          <div class="text-2xl font-semibold text-red-600">Nihon Market cần bạn</div>
+          <div class="text-2xl font-semibold text-red-600">14Elevent cần bạn</div>
           <p class="text-neutral-700 text-sm leading-relaxed">
             Tham gia đội ngũ để lan tỏa hương vị Nhật Bản chính gốc. Ứng tuyển ngay!
           </p>

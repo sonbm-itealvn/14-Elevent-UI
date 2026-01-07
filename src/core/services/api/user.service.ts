@@ -6,8 +6,6 @@ import type {
   UpdateUserRequest,
   ToggleActiveRequest 
 } from "@/domain/models/user.model";
-import type { BaseResponse } from "@/core/models/base-response.model";
-import type { BasePaginationResponse } from "@/core/models/base-pagination-response.model";
 
 class UserService {
   private httpService: HttpService;
