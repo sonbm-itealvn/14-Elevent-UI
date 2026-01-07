@@ -10,6 +10,18 @@ const router = createRouter({
         MainRoutes,
         AdminRoutes,
         {
+            path: "/forgot-password",
+            name: "ForgotPasswordDirect",
+            redirect: (to) => ({ path: "/auth/forgot-password", query: to.query }),
+            meta: { requiresAuth: false },
+        },
+        {
+            path: "/reset-password",
+            name: "ResetPasswordDirect",
+            redirect: (to) => ({ path: "/auth/reset-password", query: to.query }),
+            meta: { requiresAuth: false },
+        },
+        {
             path: "/:pathMatch(.*)*",
             name: "not-found",
             component: () => import("@/ui/views/error/Error404.vue"),

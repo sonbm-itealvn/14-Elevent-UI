@@ -19,6 +19,16 @@ const AuthRoutes: RouteRecordRaw = {
         component: () => import("@/ui/views/auth/Register.vue"),
     },
     {
+        path: "forgot-password",
+        name: "ForgotPassword",
+        component: () => import("@/ui/views/auth/ForgotPassword.vue"),
+    },
+    {
+        path: "reset-password",
+        name: "ResetPassword",
+        component: () => import("@/ui/views/auth/ResetPassword.vue"),
+    },
+    {
         path: "oauth2/callback",
         name: "OAuthCallback",
         component: () => import("@/ui/views/auth/OAuthCallback.vue"),

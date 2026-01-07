@@ -195,7 +195,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, watch, computed } from "vue";
 import { useRouter } from "vue-router";
 import { NSpin, NEmpty, NButton, NInput, useMessage } from "naive-ui";
 import useCartStore from "@/ui/stores/cart.store";
@@ -206,6 +206,7 @@ const cartStore = useCartStore();
 
 const voucherCode = ref("");
 const voucherError = ref<string | null>(null);
+const checkoutPreview = computed(() => cartStore.checkoutPreview);
 
 // Format giá tiền
 const formatPrice = (price: number | undefined): string => {

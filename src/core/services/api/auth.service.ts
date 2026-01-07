@@ -16,6 +16,16 @@ export interface RegisterRequest {
   cartToken?: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export interface AuthResponse {
   tokenType: string;
   accessToken: string;
@@ -112,6 +122,22 @@ class AuthService {
 
   isAuthenticated(): boolean {
     return !!JwtService.getAccessToken();
+  }
+
+  async forgotPassword(data: ForgotPasswordRequest): Promise<string> {
+    const response = await this.httpService.post<string>(
+      "/api/auth/password/forgot",
+      data
+    );
+    return response.data || "Vui lòng kiểm tra email để nhận mã đặt lại mật khẩu.";
+  }
+
+  async resetPassword(data: ResetPasswordRequest): Promise<string> {
+    const response = await this.httpService.post<string>(
+      "/api/auth/password/reset",
+      data
+    );
+    return response.data || "Đặt lại mật khẩu thành công.";
   }
 }
 

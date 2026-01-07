@@ -187,9 +187,9 @@ onMounted(() => {
               <input type="checkbox" class="w-4 h-4 text-[#b3000f] border-neutral-300 rounded focus:ring-red-500" />
               <span class="text-neutral-600">Ghi nhớ đăng nhập</span>
             </label>
-            <a href="#" class="text-[#b3000f] hover:underline font-semibold">
+            <RouterLink to="/auth/forgot-password" class="text-[#b3000f] hover:underline font-semibold">
               Quên mật khẩu?
-            </a>
+            </RouterLink>
           </div>
 
           <!-- Submit Button -->
