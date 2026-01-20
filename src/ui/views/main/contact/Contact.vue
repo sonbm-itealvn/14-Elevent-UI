@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useMessage } from 'naive-ui';
 import { PhoneCall, Mail, MapPin, BrandFacebook, BrandInstagram, Send, BrandTiktok } from '@vicons/tabler';
+import ContactService from '@/core/services/api/contact.service';
+
+const messageApi = useMessage();
 
 const formData = ref({
   name: '',
@@ -38,19 +42,29 @@ const contactInfo = [
 const mapEmbedUrl =
   'https://www.google.com/maps?q=13%20B%C3%B9i%20Ng%E1%BB%8Dc%20D%C6%B0%C6%A1ng,%20B%E1%BA%A1ch%20Mai,%20H%C3%A0%20N%E1%BB%99i&output=embed';
 
-const handleSubmit = (e: Event) => {
+const handleSubmit = async (e: Event) => {
   e.preventDefault();
-  // Handle form submission here
-  console.log('Form submitted:', formData.value);
-  alert('Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất có thể.');
-  // Reset form
-  formData.value = {
-    name: '',
-    email: '',
-    phone: '',
-    subject: '',
-    message: '',
-  };
+  try {
+    await ContactService.sendContact({
+      name: formData.value.name,
+      email: formData.value.email,
+      phone: formData.value.phone,
+      title: 'Liên hệ',
+      subject: formData.value.subject,
+      content: formData.value.message,
+    });
+    messageApi.success('Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất có thể.');
+    formData.value = {
+      name: '',
+      email: '',
+      phone: '',
+      subject: '',
+      message: '',
+    };
+  } catch (error) {
+    console.error('Error sending contact:', error);
+    messageApi.error('Gửi liên hệ thất bại, vui lòng thử lại sau.');
+  }
 };
 </script>
 

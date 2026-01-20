@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue';
+import { ref, onMounted, h, computed } from 'vue';
 import { 
   NDataTable, 
   NButton, 
@@ -55,7 +55,9 @@ const formData = ref<CreateProductRequest>({
   categoryId: 0,
   brand: '',
   origin: '',
-  price: 0,
+  weight: undefined,
+  weightUnit: '',
+  expiryInfo: '',
   active: true,
 });
 
@@ -71,12 +73,17 @@ const variantAttributes = ref<{ key: string; value: string }[]>([
 ]);
 
 const selectedImages = ref<UploadFileInfo[]>([]);
+const productImageUrl = ref<string | null>(null);
+const productImageFile = ref<File | null>(null);
+const variantImageUrls = ref<Record<string, string>>({}); // Map variant SKU to image URL
+const variantImageFiles = ref<Record<string, File>>({}); // Map variant SKU to image file
 const pendingVariants = ref<Array<{
   sku: string;
   name?: string;
   price: number;
   stock: number;
   attributes?: Record<string, string>;
+  imageUrl?: string;
 }>>([]);
 
 const addAttributeRow = () => {
@@ -228,13 +235,19 @@ const handleCreate = () => {
     categoryId: 0,
     brand: '',
     origin: '',
-    price: 0,
+    weight: undefined,
+    weightUnit: '',
+    expiryInfo: '',
     active: true,
   };
   variantForm.value = { sku: '', name: '', price: 0, stock: 0 };
   variantAttributes.value = [{ key: '', value: '' }];
   pendingVariants.value = [];
   selectedImages.value = [];
+  productImageUrl.value = null;
+  productImageFile.value = null;
+  variantImageUrls.value = {};
+  variantImageFiles.value = {};
   modalTitle.value = 'Tạo sản phẩm mới';
   showModal.value = true;
 };
@@ -250,12 +263,28 @@ const handleEdit = async (product: Product) => {
       categoryId: fullProduct.category?.id || (fullProduct as any).categoryId || 0,
       brand: fullProduct.brand || '',
       origin: fullProduct.origin || '',
-      price: fullProduct.price,
+      weight: fullProduct.weight,
+      weightUnit: fullProduct.weightUnit || '',
+      expiryInfo: fullProduct.expiryInfo || '',
       active: fullProduct.status === 'ACTIVE',
     };
     variantAttributes.value = [{ key: '', value: '' }];
     pendingVariants.value = [];
     selectedImages.value = [];
+    // Load existing product image
+    productImageUrl.value = fullProduct.imageUrl || (fullProduct.images && fullProduct.images.length > 0 ? fullProduct.images[0].imageUrl : null) || null;
+    productImageFile.value = null;
+    // Load existing variant images
+    variantImageUrls.value = {};
+    variantImageFiles.value = {};
+    if (fullProduct.variants) {
+      fullProduct.variants.forEach(variant => {
+        // Variants might have imageUrl in the response
+        if ((variant as any).imageUrl) {
+          variantImageUrls.value[variant.sku] = (variant as any).imageUrl;
+        }
+      });
+    }
     modalTitle.value = 'Chỉnh sửa sản phẩm';
     showModal.value = true;
   } catch (error: any) {
@@ -282,6 +311,24 @@ const generateSlug = (name: string) => {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
+};
+
+// Format number with comma separator
+const formatPrice = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || value === 0 || isNaN(value)) return '';
+  return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
+
+// Parse formatted number back to number
+const parsePrice = (value: string): string => {
+  if (!value) return '';
+  return value.replace(/,/g, '').trim();
+};
+
+// Handle price input change
+const handlePriceInput = (value: string) => {
+  const parsed = parsePrice(value);
+  variantForm.value.price = parsed ? Number(parsed) : 0;
 };
 
 const handleNameChange = () => {
@@ -311,8 +358,28 @@ const handleSave = async () => {
       await ProductService.updateProduct(editingProduct.value.id, formData.value as UpdateProductRequest);
       message.success('Cập nhật sản phẩm thành công');
     } else {
-      const created = await ProductService.createProduct(formData.value);
+      // Create product first with imageUrl = null
+      const productData = {
+        ...formData.value,
+        status: formData.value.active ? 'ACTIVE' : 'INACTIVE',
+      };
+      delete (productData as any).active;
+      // Don't include imageUrl - create with null
+
+      const created = await ProductService.createProduct(productData);
       productId = created.id;
+
+      // Upload product image after creating product
+      if (productImageFile.value && productId) {
+        try {
+          const uploadedUrl = await ProductService.uploadProductImage(productId, productImageFile.value);
+          // Update product with imageUrl
+          await ProductService.updateProduct(productId, { imageUrl: uploadedUrl });
+          productImageUrl.value = uploadedUrl;
+        } catch (error: any) {
+          message.warning('Lỗi khi upload ảnh sản phẩm, nhưng sản phẩm đã được tạo');
+        }
+      }
 
       const variantsToCreate = [...pendingVariants.value];
       const hasVariantPayload = !!variantForm.value.sku;
@@ -328,15 +395,31 @@ const handleSave = async () => {
 
       if (variantsToCreate.length && productId) {
         for (const variant of variantsToCreate) {
-          await ProductService.createVariant(productId, variant);
-        }
-      }
+          // Create variant with imageUrl = null
+          const createdVariant = await ProductService.createVariant(productId, {
+            sku: variant.sku,
+            price: variant.price,
+            stock: variant.stock,
+            name: variant.name,
+            attributes: variant.attributes,
+            // Don't include imageUrl - create with null
+          });
 
-      const files = selectedImages.value
-        .map((file) => file.file)
-        .filter((file): file is File => !!file);
-      if (files.length && productId) {
-        await ProductService.uploadImages(productId, files);
+          // Upload variant image after creating variant
+          const variantImageFile = variantImageFiles.value[variant.sku];
+          if (variantImageFile && createdVariant.id) {
+            try {
+              const uploadedUrl = await ProductService.uploadVariantImage(
+                productId,
+                createdVariant.id,
+                variantImageFile
+              );
+              variantImageUrls.value[variant.sku] = uploadedUrl;
+            } catch (error: any) {
+              message.warning(`Lỗi khi upload ảnh biến thể ${variant.sku}`);
+            }
+          }
+        }
       }
 
       message.success('Tạo sản phẩm kèm biến thể và ảnh thành công');
@@ -344,6 +427,10 @@ const handleSave = async () => {
     showModal.value = false;
     saving.value = false;
     selectedImages.value = [];
+    productImageUrl.value = null;
+    productImageFile.value = null;
+    variantImageUrls.value = {};
+    variantImageFiles.value = {};
     await loadProducts();
   } catch (error: any) {
     saving.value = false;
@@ -380,21 +467,56 @@ const handleAddVariant = async () => {
     }
   });
   if (!editingProduct.value) {
-    pendingVariants.value.push({
+    const currentSku = variantForm.value.sku;
+    const variantData = {
       ...variantForm.value,
       attributes: Object.keys(attrs).length ? attrs : undefined,
-    });
+    };
+    pendingVariants.value.push(variantData);
     message.success('Đã thêm biến thể vào danh sách chờ lưu');
+    // Clear variant image for next variant before clearing form
+    if (variantImageFiles.value[currentSku]) {
+      delete variantImageFiles.value[currentSku];
+    }
+    if (variantImageUrls.value[currentSku]) {
+      delete variantImageUrls.value[currentSku];
+    }
     variantForm.value = { sku: '', name: '', price: 0, stock: 0 };
     variantAttributes.value = [{ key: '', value: '' }];
     return;
   }
   try {
-    await ProductService.createVariant(editingProduct.value.id, {
+    // Create variant with imageUrl = null
+    const variantData = {
       ...variantForm.value,
       attributes: Object.keys(attrs).length ? attrs : undefined,
-    });
+    };
+    const createdVariant = await ProductService.createVariant(editingProduct.value.id, variantData);
+    
+    // Upload variant image after creating variant
+    const variantImageFile = variantImageFiles.value[variantForm.value.sku];
+    if (variantImageFile && createdVariant.id) {
+      try {
+        const uploadedUrl = await ProductService.uploadVariantImage(
+          editingProduct.value.id,
+          createdVariant.id,
+          variantImageFile
+        );
+        variantImageUrls.value[variantForm.value.sku] = uploadedUrl;
+      } catch (error: any) {
+        message.warning('Lỗi khi upload ảnh biến thể');
+      }
+    }
+    
     message.success('Thêm biến thể thành công');
+    const currentSku = variantForm.value.sku;
+    // Clear variant image before clearing form
+    if (variantImageFiles.value[currentSku]) {
+      delete variantImageFiles.value[currentSku];
+    }
+    if (variantImageUrls.value[currentSku]) {
+      delete variantImageUrls.value[currentSku];
+    }
     variantForm.value = { sku: '', name: '', price: 0, stock: 0 };
     variantAttributes.value = [{ key: '', value: '' }];
     await handleEdit(editingProduct.value);
@@ -426,6 +548,102 @@ const handleDeleteImage = async (imageId: number) => {
     await handleEdit(editingProduct.value);
   } catch (error: any) {
     message.error('Lỗi khi xóa hình ảnh');
+  }
+};
+
+const productImageFileList = computed<UploadFileInfo[]>(() => {
+  if (productImageUrl.value) {
+    return [{
+      id: 'product-image',
+      name: productImageFile.value?.name || 'product-image',
+      status: 'finished',
+      url: productImageUrl.value,
+    }];
+  }
+  return [];
+});
+
+const handleProductImageChange = async ({ fileList }: { fileList: UploadFileInfo[] }) => {
+  if (fileList.length === 0) {
+    productImageFile.value = null;
+    productImageUrl.value = null;
+    return;
+  }
+
+  const file = fileList[fileList.length - 1].file;
+  if (!file) return;
+
+  productImageFile.value = file;
+
+  // If editing existing product, upload immediately
+  if (editingProduct.value) {
+    try {
+      const uploadedUrl = await ProductService.uploadProductImage(editingProduct.value.id, file);
+      productImageUrl.value = uploadedUrl;
+      // Update product with imageUrl
+      await ProductService.updateProduct(editingProduct.value.id, { imageUrl: uploadedUrl });
+      message.success('Upload ảnh sản phẩm thành công');
+      await handleEdit(editingProduct.value);
+    } catch (error: any) {
+      message.error('Lỗi khi upload ảnh sản phẩm');
+      productImageFile.value = null;
+      productImageUrl.value = null;
+    }
+  } else {
+    // For new product, just store the file - will upload after product is created
+    // Create a preview URL for display
+    productImageUrl.value = URL.createObjectURL(file);
+  }
+};
+
+const getVariantImageFileList = (sku: string): UploadFileInfo[] => {
+  const url = variantImageUrls.value[sku];
+  if (url) {
+    return [{
+      id: `variant-image-${sku}`,
+      name: variantImageFiles.value[sku]?.name || `variant-image-${sku}`,
+      status: 'finished',
+      url: url,
+    }];
+  }
+  return [];
+};
+
+const handleVariantImageChange = async ({ fileList }: { fileList: UploadFileInfo[] }, sku: string) => {
+  if (fileList.length === 0) {
+    delete variantImageFiles.value[sku];
+    delete variantImageUrls.value[sku];
+    return;
+  }
+
+  const file = fileList[fileList.length - 1].file;
+  if (!file) return;
+
+  variantImageFiles.value[sku] = file;
+
+  // If editing existing product and variant exists, upload immediately
+  if (editingProduct.value) {
+    const variant = editingProduct.value.variants?.find(v => v.sku === sku);
+    if (variant) {
+      try {
+        const uploadedUrl = await ProductService.uploadVariantImage(
+          editingProduct.value.id,
+          variant.id,
+          file
+        );
+        variantImageUrls.value[sku] = uploadedUrl;
+        message.success('Upload ảnh biến thể thành công');
+        await handleEdit(editingProduct.value);
+      } catch (error: any) {
+        message.error('Lỗi khi upload ảnh biến thể');
+        delete variantImageFiles.value[sku];
+        delete variantImageUrls.value[sku];
+      }
+    }
+  } else {
+    // For new variant, we'll upload after variant is created
+    // For now, create a preview URL
+    variantImageUrls.value[sku] = URL.createObjectURL(file);
   }
 };
 
@@ -549,96 +767,224 @@ onMounted(() => {
             <NFormItem label="Xuất xứ" path="origin">
               <NInput v-model:value="formData.origin" placeholder="Nhập xuất xứ" />
             </NFormItem>
-            <NFormItem label="Giá" path="price" :rule="{ required: true, type: 'number', min: 0, message: 'Vui lòng nhập giá' }">
-              <NInputNumber v-model:value="formData.price" placeholder="Nhập giá" :min="0" :precision="0" style="width: 100%" />
+            <NFormItem label="Khối lượng" path="weight">
+              <NInputNumber v-model:value="formData.weight" placeholder="Nhập khối lượng" :min="0" :precision="2" style="width: 100%" />
+            </NFormItem>
+            <NFormItem label="Đơn vị đo lường" path="weightUnit">
+              <NInput v-model:value="formData.weightUnit" placeholder="Nhập đơn vị (vd: g, kg, ml, l)" />
+            </NFormItem>
+            <NFormItem label="Thông tin hạn sử dụng" path="expiryInfo">
+              <NInput v-model:value="formData.expiryInfo" placeholder="Nhập thông tin hạn sử dụng" />
             </NFormItem>
             <NFormItem label="Trạng thái" path="active">
               <NSwitch v-model:value="formData.active" />
             </NFormItem>
+            <NFormItem label="Ảnh sản phẩm" path="imageUrl">
+              <NUpload
+                :max="1"
+                :default-upload="false"
+                :file-list="productImageFileList"
+                :on-change="handleProductImageChange"
+                accept="image/*"
+                list-type="image-card"
+              >
+                <NButton>Chọn ảnh</NButton>
+              </NUpload>
+              <div v-if="!editingProduct && productImageFile" class="text-xs text-gray-500 mt-1">
+                Ảnh sẽ được upload sau khi tạo sản phẩm
+              </div>
+            </NFormItem>
           </NForm>
         </NTabPane>
         <NTabPane name="variants" tab="Biến thể">
-          <div class="mb-4">
-            <h3 class="text-lg font-semibold mb-2">Thêm biến thể mới</h3>
-            <div class="grid grid-cols-4 gap-4">
-              <NInput v-model:value="variantForm.sku" placeholder="SKU" />
-              <NInput v-model:value="variantForm.name" placeholder="Tên biến thể" />
-              <NInputNumber v-model:value="variantForm.price" placeholder="Giá" :min="0" />
-              <NInputNumber v-model:value="variantForm.stock" placeholder="Tồn kho" :min="0" />
-            </div>
-            <div class="mt-3">
-              <div class="flex items-center justify-between mb-2">
-                <h4 class="font-medium">Thuộc tính (tùy chọn)</h4>
-                <NButton size="tiny" quaternary @click="addAttributeRow">Thêm thuộc tính</NButton>
-              </div>
-              <div v-for="(attr, index) in variantAttributes" :key="index" class="grid grid-cols-2 gap-3 mb-2">
-                <NInput v-model:value="attr.key" placeholder="Tên thuộc tính (vd: color, size)" />
-                <div class="flex gap-2">
-                  <NInput v-model:value="attr.value" placeholder="Giá trị (vd: đỏ, M)" />
-                  <NButton size="small" quaternary type="error" @click="removeAttributeRow(index)" :disabled="variantAttributes.length === 1">Xóa</NButton>
+          <div class="space-y-6">
+            <!-- Form thêm biến thể mới -->
+            <NCard title="Thông tin biến thể" size="small">
+              <div class="space-y-4">
+                <!-- Thông tin cơ bản -->
+                <div>
+                  <h4 class="text-sm font-semibold text-neutral-700 mb-3">Thông tin cơ bản</h4>
+                  <div class="grid grid-cols-2 gap-4">
+                    <NFormItem label="SKU" :required="true" label-placement="left" label-width="100">
+                      <NInput v-model:value="variantForm.sku" placeholder="Nhập SKU (bắt buộc)" />
+                    </NFormItem>
+                    <NFormItem label="Tên biến thể" label-placement="left" label-width="100">
+                      <NInput v-model:value="variantForm.name" placeholder="Nhập tên biến thể (tùy chọn)" />
+                    </NFormItem>
+                    <NFormItem label="Giá" :required="true" label-placement="left" label-width="100">
+                      <div class="flex items-center gap-2" style="width: 100%">
+                        <NInput
+                          :value="variantForm.price ? formatPrice(variantForm.price) : ''"
+                          @update:value="handlePriceInput"
+                          placeholder="Nhập giá"
+                          style="flex: 1"
+                          type="text"
+                        />
+                        <span class="text-neutral-600 font-medium min-w-[30px]">₫</span>
+                      </div>
+                    </NFormItem>
+                    <NFormItem label="Tồn kho" :required="true" label-placement="left" label-width="100">
+                      <NInputNumber 
+                        v-model:value="variantForm.stock" 
+                        placeholder="Nhập số lượng" 
+                        :min="0" 
+                        :precision="0"
+                        style="width: 100%"
+                      />
+                    </NFormItem>
+                  </div>
+                </div>
+
+                <!-- Ảnh biến thể -->
+                <div>
+                  <h4 class="text-sm font-semibold text-neutral-700 mb-3">Ảnh biến thể</h4>
+                  <NFormItem label="Ảnh" label-placement="left" label-width="100">
+                    <NUpload
+                      :max="1"
+                      :default-upload="false"
+                      :file-list="getVariantImageFileList(variantForm.sku)"
+                      :on-change="(options) => handleVariantImageChange(options, variantForm.sku)"
+                      accept="image/*"
+                      list-type="image-card"
+                    >
+                      <NButton>Chọn ảnh</NButton>
+                    </NUpload>
+                    <div v-if="!editingProduct && variantImageFiles[variantForm.sku]" class="text-xs text-gray-500 mt-1">
+                      Ảnh sẽ được upload sau khi tạo biến thể
+                    </div>
+                  </NFormItem>
+                </div>
+
+                <!-- Thuộc tính -->
+                <div>
+                  <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm font-semibold text-neutral-700">Thuộc tính (tùy chọn)</h4>
+                    <NButton size="small" quaternary @click="addAttributeRow">
+                      <template #icon>
+                        <NIcon><Plus /></NIcon>
+                      </template>
+                      Thêm thuộc tính
+                    </NButton>
+                  </div>
+                  <div v-if="variantAttributes.length > 0" class="space-y-2">
+                    <div 
+                      v-for="(attr, index) in variantAttributes" 
+                      :key="index" 
+                      class="flex items-center gap-3 p-3 bg-neutral-50 rounded-lg border border-neutral-200"
+                    >
+                      <div class="flex-1 grid grid-cols-2 gap-3">
+                        <NInput 
+                          v-model:value="attr.key" 
+                          placeholder="Tên thuộc tính (vd: Màu sắc, Kích thước)" 
+                        />
+                        <NInput 
+                          v-model:value="attr.value" 
+                          placeholder="Giá trị (vd: Đỏ, L)" 
+                        />
+                      </div>
+                      <NButton 
+                        size="small" 
+                        quaternary 
+                        type="error" 
+                        @click="removeAttributeRow(index)" 
+                        :disabled="variantAttributes.length === 1"
+                      >
+                        <template #icon>
+                          <NIcon><Trash /></NIcon>
+                        </template>
+                        Xóa
+                      </NButton>
+                    </div>
+                  </div>
+                  <div v-else class="text-sm text-neutral-500 italic text-center py-4">
+                    Chưa có thuộc tính nào. Nhấn "Thêm thuộc tính" để thêm.
+                  </div>
+                </div>
+
+                <!-- Nút thêm biến thể -->
+                <div class="flex items-center gap-3 pt-2 border-t border-neutral-200">
+                  <NButton type="primary" @click="handleAddVariant" :disabled="!variantForm.sku || !variantForm.price || variantForm.stock === undefined">
+                    <template #icon>
+                      <NIcon><Plus /></NIcon>
+                    </template>
+                    Thêm biến thể
+                  </NButton>
+                  <div v-if="!editingProduct" class="text-xs text-neutral-500 flex-1 flex items-center gap-1">
+                    <NIcon size="14"><ImageIcon /></NIcon>
+                    <span>Biến thể được lưu tạm và sẽ tạo sau khi bạn bấm "Lưu sản phẩm"</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="flex items-center gap-3 mt-2">
-              <NButton type="primary" @click="handleAddVariant">Thêm biến thể</NButton>
-              <div v-if="!editingProduct" class="text-xs text-gray-500">Biến thể được lưu tạm và sẽ tạo sau khi bạn bấm Lưu sản phẩm.</div>
-            </div>
-          </div>
-          <div v-if="!editingProduct && pendingVariants.length" class="mb-4">
-            <h4 class="font-medium mb-2">Biến thể sẽ tạo mới</h4>
-            <NDataTable
-              size="small"
-              :columns="[
-                { title: 'SKU', key: 'sku' },
-                { title: 'Tên', key: 'name', render: (row) => row.name || '-' },
-                { title: 'Giá', key: 'price', render: (row) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.price) },
-                { title: 'Tồn kho', key: 'stock' },
-                { title: 'Thuộc tính', key: 'attributes', render: (row) => row.attributes ? Object.values(row.attributes).join(' · ') : '-' },
-                { title: 'Thao tác', key: 'actions', render: (_, index) => h(NButton, { size: 'small', type: 'error', onClick: () => handleRemovePendingVariant(index) }, { default: () => 'Xóa' }) },
-              ]"
-              :data="pendingVariants"
-              :bordered="true"
-            />
-          </div>
-          <div v-if="editingProduct?.variants && editingProduct.variants.length > 0">
-            <NDataTable
-              :columns="[
-                { title: 'SKU', key: 'sku' },
-                { title: 'Tên', key: 'name' },
-                { title: 'Giá', key: 'price', render: (row) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.price) },
-                { title: 'Tồn kho', key: 'stock' },
-                { title: 'Thao tác', key: 'actions', render: (row) => h(NPopconfirm, { onPositiveClick: () => handleDeleteVariant(row.id) }, { trigger: () => h(NButton, { size: 'small', type: 'error' }, { default: () => 'Xóa' }), default: () => 'Xóa biến thể?' }) },
-              ]"
-              :data="editingProduct.variants"
-            />
-          </div>
-        </NTabPane>
-        <NTabPane name="images" tab="Hình ảnh">
-          <div class="mb-4">
-            <NUpload
-              multiple
-              :max="10"
-              :default-upload="false"
-              :file-list="selectedImages"
-              :on-change="handleImageChange"
-              accept="image/*"
-            >
-              <NButton>Chọn hình ảnh</NButton>
-            </NUpload>
-            <div v-if="!editingProduct" class="text-xs text-gray-500 mt-1">Ảnh sẽ được tải lên ngay sau khi sản phẩm được tạo.</div>
-          </div>
-          <div v-if="editingProduct?.images && editingProduct.images.length > 0" class="grid grid-cols-4 gap-4">
-            <div v-for="image in editingProduct.images" :key="image.id" class="relative">
-              <NImage :src="image.imageUrl" width="100%" height="150" object-fit="cover" />
-              <NTag v-if="image.thumbnail" type="success" class="absolute top-2 left-2">Ảnh đại diện</NTag>
-              <NButton
+            </NCard>
+
+            <!-- Danh sách biến thể đã thêm (tạm thời) -->
+            <NCard v-if="!editingProduct && pendingVariants.length > 0" title="Biến thể sẽ tạo mới" size="small">
+              <NDataTable
                 size="small"
-                type="error"
-                class="absolute top-2 right-2"
-                @click="handleDeleteImage(image.id)"
-              >
-                Xóa
-              </NButton>
+                :columns="[
+                  { title: 'SKU', key: 'sku', width: 150 },
+                  { title: 'Tên', key: 'name', render: (row) => row.name || '-', width: 150 },
+                  { title: 'Giá', key: 'price', render: (row) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.price), width: 120 },
+                  { title: 'Tồn kho', key: 'stock', width: 100 },
+                  { title: 'Thuộc tính', key: 'attributes', render: (row) => row.attributes ? Object.entries(row.attributes).map(([k, v]) => `${k}: ${v}`).join(', ') : '-', ellipsis: { tooltip: true } },
+                  { 
+                    title: 'Thao tác', 
+                    key: 'actions', 
+                    width: 100,
+                    render: (_, index) => h(NButton, { 
+                      size: 'small', 
+                      type: 'error',
+                      quaternary: true,
+                      onClick: () => handleRemovePendingVariant(index) 
+                    }, { 
+                      default: () => 'Xóa',
+                      icon: () => h(NIcon, null, { default: () => h(Trash) })
+                    })
+                  },
+                ]"
+                :data="pendingVariants"
+                :bordered="true"
+                :striped="true"
+              />
+            </NCard>
+
+            <!-- Danh sách biến thể hiện có (khi chỉnh sửa) -->
+            <NCard v-if="editingProduct?.variants && editingProduct.variants.length > 0" title="Biến thể hiện có" size="small">
+              <NDataTable
+                :columns="[
+                  { title: 'SKU', key: 'sku', width: 150 },
+                  { title: 'Tên', key: 'name', width: 150 },
+                  { title: 'Giá', key: 'price', render: (row) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.price), width: 120 },
+                  { title: 'Tồn kho', key: 'stock', width: 100 },
+                  { 
+                    title: 'Thao tác', 
+                    key: 'actions', 
+                    width: 100,
+                    render: (row) => h(NPopconfirm, { 
+                      onPositiveClick: () => handleDeleteVariant(row.id) 
+                    }, { 
+                      trigger: () => h(NButton, { 
+                        size: 'small', 
+                        type: 'error',
+                        quaternary: true
+                      }, { 
+                        default: () => 'Xóa',
+                        icon: () => h(NIcon, null, { default: () => h(Trash) })
+                      }), 
+                      default: () => 'Bạn có chắc muốn xóa biến thể này?' 
+                    })
+                  },
+                ]"
+                :data="editingProduct.variants"
+                :bordered="true"
+                :striped="true"
+              />
+            </NCard>
+
+            <!-- Thông báo khi chưa có biến thể -->
+            <div v-if="editingProduct && (!editingProduct.variants || editingProduct.variants.length === 0)" class="text-center py-8 text-neutral-500">
+              <NIcon size="48" class="mb-2"><ImageIcon /></NIcon>
+              <p>Chưa có biến thể nào. Hãy thêm biến thể mới ở trên.</p>
             </div>
           </div>
         </NTabPane>

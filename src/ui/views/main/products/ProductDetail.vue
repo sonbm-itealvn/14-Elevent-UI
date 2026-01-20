@@ -16,6 +16,7 @@ const product = ref<ProductDetail | null>(null);
 const selectedVariantId = ref<number | null>(null);
 const quantity = ref(1);
 const mainImage = ref<string | null>(null);
+const selectedImageSource = ref<'product' | 'variant' | null>(null); // Track which image source is selected
 
 const priceRange = computed(() => {
   if (!product.value?.variants || product.value.variants.length === 0) return null;
@@ -50,8 +51,11 @@ const variantAttributes = computed(() => {
   return Object.fromEntries(Object.entries(attrMap).map(([k, set]) => [k, Array.from(set)]));
 });
 
-const setMainImage = (url?: string) => {
-  if (url) mainImage.value = url;
+const setMainImage = (url?: string, source: 'product' | 'variant' | null = null) => {
+  if (url) {
+    mainImage.value = url;
+    selectedImageSource.value = source;
+  }
 };
 
 const loadProduct = async (slug: string) => {
@@ -59,13 +63,22 @@ const loadProduct = async (slug: string) => {
     loading.value = true;
     const data = await PublicProductService.getProductBySlug(slug);
     product.value = data;
-    // Images
-    const thumb = data.images?.find(img => img.thumbnail)?.imageUrl;
-    setMainImage(thumb || data.images?.[0]?.imageUrl);
+    // Mặc định hiển thị ảnh của sản phẩm
+    if (data.imageUrl) {
+      setMainImage(data.imageUrl, 'product');
+    } else {
+      const thumb = data.images?.find(img => img.thumbnail)?.imageUrl;
+      setMainImage(thumb || data.images?.[0]?.imageUrl, 'product');
+    }
     // Default variant: pick first in stock, else first
     if (data.variants?.length) {
       const inStock = data.variants.find(v => v.stock > 0);
       selectedVariantId.value = (inStock || data.variants[0]).id;
+      // Update main image if variant has image
+      const selectedVariant = inStock || data.variants[0];
+      if (selectedVariant.imageUrl) {
+        setMainImage(selectedVariant.imageUrl, 'variant');
+      }
     }
   } catch (error: any) {
     console.error('Error loading product detail', error);
@@ -78,6 +91,20 @@ const loadProduct = async (slug: string) => {
 
 const handleSelectVariant = (id: number) => {
   selectedVariantId.value = id;
+  // Update main image when variant is selected
+  const variant = product.value?.variants?.find(v => v.id === id);
+  if (variant?.imageUrl) {
+    setMainImage(variant.imageUrl, 'variant');
+  } else if (product.value?.imageUrl) {
+    // Fallback to product image if variant doesn't have image
+    setMainImage(product.value.imageUrl, 'product');
+  }
+};
+
+const handleSelectProductImage = () => {
+  if (product.value?.imageUrl) {
+    setMainImage(product.value.imageUrl, 'product');
+  }
 };
 
 const handleAddToCart = async () => {
@@ -129,26 +156,62 @@ watch(
         <!-- Gallery -->
         <div class="space-y-4">
           <div class="bg-neutral-50 border border-neutral-200 rounded-lg p-2 min-h-[400px] flex items-center justify-center">
-            <n-image
+            <img
               v-if="mainImage"
               :src="mainImage"
-              class="max-h-[460px] object-contain"
-              :preview-src="mainImage"
+              class="max-h-[460px] w-full object-contain"
+              alt="Product image"
             />
             <div v-else class="text-neutral-400 text-sm">Không có hình ảnh</div>
           </div>
+          <!-- Thumbnail images: product image + variant images -->
           <div class="flex gap-3 overflow-x-auto pb-1">
-            <n-image-group>
-              <n-image
+            <!-- Product main image - luôn hiển thị và có thể chọn -->
+            <img
+              v-if="product.imageUrl"
+              :src="product.imageUrl"
+              class="w-20 h-20 rounded border object-cover cursor-pointer transition-colors flex-shrink-0"
+              :class="[
+                selectedImageSource === 'product' && mainImage === product.imageUrl
+                  ? 'border-[#b3000f] ring-2 ring-[#b3000f]'
+                  : 'border-neutral-200 hover:border-[#b3000f]'
+              ]"
+              @click="handleSelectProductImage"
+              alt="Product thumbnail"
+              title="Chọn ảnh sản phẩm gốc"
+            />
+            <!-- Variant images - có thể chọn từng variant -->
+            <template v-for="variant in product.variants || []" :key="`variant-${variant.id}`">
+              <img
+                v-if="variant.imageUrl"
+                :src="variant.imageUrl"
+                class="w-20 h-20 rounded border object-cover cursor-pointer transition-colors flex-shrink-0"
+                :class="[
+                  selectedImageSource === 'variant' && selectedVariantId === variant.id && mainImage === variant.imageUrl
+                    ? 'border-[#b3000f] ring-2 ring-[#b3000f]'
+                    : 'border-neutral-200 hover:border-[#b3000f]'
+                ]"
+                @click="handleSelectVariant(variant.id)"
+                :alt="`Variant ${variant.sku} thumbnail`"
+                :title="`Chọn ảnh biến thể ${variant.sku}`"
+              />
+            </template>
+            <!-- Fallback to images array if no imageUrl -->
+            <template v-if="!product.imageUrl && (!product.variants || product.variants.every(v => !v.imageUrl))">
+              <img
                 v-for="img in product.images || []"
                 :key="img.id"
                 :src="img.imageUrl"
-                width="80"
-                height="80"
-                class="rounded border border-neutral-200 object-cover cursor-pointer hover:border-[#b3000f]"
-                @click="setMainImage(img.imageUrl)"
+                class="w-20 h-20 rounded border object-cover cursor-pointer transition-colors flex-shrink-0"
+                :class="[
+                  mainImage === img.imageUrl
+                    ? 'border-[#b3000f] ring-2 ring-[#b3000f]'
+                    : 'border-neutral-200 hover:border-[#b3000f]'
+                ]"
+                @click="setMainImage(img.imageUrl, 'product')"
+                alt="Product image thumbnail"
               />
-            </n-image-group>
+            </template>
           </div>
         </div>
 
@@ -180,7 +243,13 @@ watch(
               </template>
             </div>
             <p class="text-sm text-neutral-600">
-              <span v-if="selectedVariant">Giá của biến thể: {{ selectedVariant.sku }}</span>
+              <span v-if="selectedVariant">
+                Giá của biến thể: <strong>{{ selectedVariant.sku }}</strong>
+                <span v-if="selectedVariant.stock > 0" class="ml-2 text-green-600">
+                  (Còn {{ selectedVariant.stock }} sản phẩm)
+                </span>
+                <span v-else class="ml-2 text-red-600">(Hết hàng)</span>
+              </span>
               <span v-else>Giá theo biến thể; chọn biến thể để xem giá chính xác.</span>
             </p>
             <div class="text-sm text-neutral-500 flex items-center gap-2">
@@ -193,25 +262,48 @@ watch(
           <!-- Variants -->
           <div v-if="product.variants?.length" class="space-y-3">
             <div class="font-semibold text-neutral-900">Chọn biến thể</div>
-            <div class="flex flex-wrap gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 v-for="variant in product.variants"
                 :key="variant.id"
                 @click="handleSelectVariant(variant.id)"
                 :class="[
-                  'border rounded-lg px-3 py-2 text-left transition-colors min-w-[120px]',
+                  'border rounded-lg p-3 text-left transition-all relative overflow-hidden',
                   selectedVariantId === variant.id
-                    ? 'border-[#b3000f] bg-[#fff5f5]'
-                    : 'border-neutral-200 hover:border-neutral-300'
+                    ? 'border-[#b3000f] bg-[#fff5f5] shadow-sm'
+                    : 'border-neutral-200 hover:border-neutral-300 hover:shadow-sm'
                 ]"
               >
-                <div class="font-semibold text-neutral-900 text-sm truncate">{{ variant.sku }}</div>
-                <div v-if="variant.attributes" class="text-xs text-neutral-500 mt-1 truncate">
-                  {{ Object.values(variant.attributes).join(' · ') }}
+                <!-- Variant image thumbnail if available - scale nhỏ lại -->
+                <div v-if="variant.imageUrl" class="mb-2">
+                  <img
+                    :src="variant.imageUrl"
+                    class="w-full h-16 rounded object-cover"
+                    :alt="`Variant ${variant.sku} image`"
+                  />
                 </div>
-                <div class="flex items-center justify-between mt-1 text-xs text-neutral-600">
-                  <span>{{ variant.price.toLocaleString('vi-VN') }}₫</span>
-                  <n-badge :value="variant.stock" :max="99" type="success" />
+                <div class="font-semibold text-neutral-900 text-sm truncate">{{ variant.sku }}</div>
+                <div v-if="variant.attributes" class="text-xs text-neutral-500 mt-1">
+                  <div v-for="(value, key) in variant.attributes" :key="key" class="truncate">
+                    <span class="font-medium">{{ key }}:</span> {{ value }}
+                  </div>
+                </div>
+                <div class="flex items-center justify-between mt-2">
+                  <span class="text-sm font-semibold text-[#b3000f]">
+                    {{ variant.price.toLocaleString('vi-VN') }}₫
+                  </span>
+                  <n-badge 
+                    :value="variant.stock > 0 ? variant.stock : 'Hết hàng'" 
+                    :max="99" 
+                    :type="variant.stock > 0 ? 'success' : 'error'" 
+                  />
+                </div>
+                <!-- Selected indicator -->
+                <div
+                  v-if="selectedVariantId === variant.id"
+                  class="absolute top-2 right-2 w-5 h-5 bg-[#b3000f] rounded-full flex items-center justify-center"
+                >
+                  <span class="text-white text-xs">✓</span>
                 </div>
               </button>
             </div>
@@ -234,21 +326,23 @@ watch(
               type="error"
               strong
               size="large"
-              class="!px-6"
+              class="!px-6 flex-1 sm:flex-none"
               @click="handleAddToCart"
               :loading="loading"
+              :disabled="!selectedVariant || selectedVariant.stock === 0"
             >
               <template #icon>
                 <ShoppingCart />
               </template>
-              Thêm vào giỏ
+              {{ selectedVariant && selectedVariant.stock === 0 ? 'Hết hàng' : 'Thêm vào giỏ' }}
             </n-button>
             <n-button
               type="primary"
               strong
               size="large"
-              class="!px-6"
+              class="!px-6 flex-1 sm:flex-none"
               ghost
+              :disabled="!selectedVariant || selectedVariant.stock === 0"
               @click="handleAddToCart().then(() => router.push({ name: 'Cart' }))"
             >
               Mua ngay

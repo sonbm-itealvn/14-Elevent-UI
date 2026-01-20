@@ -156,6 +156,32 @@ class ProductService {
       `/api/admin/products/${productId}/images/${imageId}`
     );
   }
+
+  // Upload single product image (returns URL string)
+  async uploadProductImage(productId: number, file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await this.httpService.upload<string>(
+      `/api/admin/products/${productId}/image`,
+      formData
+    );
+    return response.data!;
+  }
+
+  // Upload single variant image (returns URL string)
+  async uploadVariantImage(
+    productId: number,
+    variantId: number,
+    file: File
+  ): Promise<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await this.httpService.upload<string>(
+      `/api/admin/products/${productId}/variants/${variantId}/image`,
+      formData
+    );
+    return response.data!;
+  }
 }
 
 export default new ProductService();

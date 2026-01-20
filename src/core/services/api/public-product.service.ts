@@ -32,6 +32,7 @@ export interface ProductDetail {
   weight?: number;
   weightUnit?: string;
   expiryInfo?: string;
+  imageUrl?: string;
   category?: {
     id: number;
     name: string;
@@ -48,6 +49,7 @@ export interface ProductDetail {
     price: number;
     stock: number;
     attributes?: Record<string, any>;
+    imageUrl?: string;
   }>;
   createdAt?: string;
   updatedAt?: string;

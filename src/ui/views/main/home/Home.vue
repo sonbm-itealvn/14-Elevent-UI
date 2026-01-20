@@ -3,10 +3,9 @@ import { ref, onMounted } from 'vue';
 import PublicProductService from '@/core/services/api/public-product.service';
 import type { PublicProduct } from '@/core/services/api/public-product.service';
 import { useMessage } from 'naive-ui';
-import useCartStore from '@/ui/stores/cart.store';
+import ContactService from '@/core/services/api/contact.service';
 
 const message = useMessage();
-const cartStore = useCartStore();
 const heroImage =
   "https://images.unsplash.com/photo-1545134969-8debd725b007?auto=format&fit=crop&w=1600&q=80";
 
@@ -47,46 +46,6 @@ const loadPromotionProducts = async () => {
   }
 };
 
-// Thêm sản phẩm vào giỏ hàng
-const addingToCart = ref<number | null>(null); // Track product đang được thêm
-
-const handleAddToCart = async (product: PublicProduct) => {
-  if (addingToCart.value === product.id) return; // Prevent double click
-  
-  try {
-    addingToCart.value = product.id;
-    
-    // Lấy chi tiết sản phẩm để có variants
-    const productDetail = await PublicProductService.getProductBySlug(product.slug);
-    
-    // Kiểm tra có variants không
-    if (!productDetail.variants || productDetail.variants.length === 0) {
-      message.warning('Sản phẩm này chưa có biến thể để thêm vào giỏ hàng');
-      return;
-    }
-    
-    // Tìm variant đầu tiên có stock > 0
-    const availableVariant = productDetail.variants.find(v => v.stock > 0);
-    
-    if (!availableVariant) {
-      message.warning('Sản phẩm này đã hết hàng');
-      return;
-    }
-    
-    // Thêm vào giỏ hàng với số lượng 1
-    await cartStore.addItem(availableVariant.id, 1);
-    message.success(`Đã thêm "${product.name}" vào giỏ hàng`);
-    
-    // Reload cart để cập nhật số lượng trên header
-    await cartStore.loadCart();
-  } catch (error: any) {
-    console.error('Error adding to cart:', error);
-    const errorMsg = error?.response?.data?.message || error?.message || 'Không thể thêm sản phẩm vào giỏ hàng';
-    message.error(errorMsg);
-  } finally {
-    addingToCart.value = null;
-  }
-};
 
 onMounted(() => {
   loadBestSellers();
@@ -147,6 +106,50 @@ const newsList = [
       "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=800&q=80",
   },
 ];
+
+const showApplyForm = ref(false);
+const applyForm = ref({
+  name: '',
+  email: '',
+  phone: '',
+});
+const submittingApply = ref(false);
+
+const openApplyForm = () => {
+  showApplyForm.value = true;
+};
+
+const closeApplyForm = () => {
+  if (submittingApply.value) return;
+  showApplyForm.value = false;
+};
+
+const submitApply = async () => {
+  if (submittingApply.value) return;
+  submittingApply.value = true;
+  try {
+    await ContactService.sendContact({
+      name: applyForm.value.name,
+      email: applyForm.value.email,
+      phone: applyForm.value.phone,
+      title: 'Ứng tuyển',
+      subject: 'Nhân viên bán hàng',
+      content: 'Ứng tuyển làm việc',
+    });
+    message.success('Đã gửi thông tin ứng tuyển thành công!');
+    applyForm.value = {
+      name: '',
+      email: '',
+      phone: '',
+    };
+    showApplyForm.value = false;
+  } catch (error) {
+    console.error('Error sending application:', error);
+    message.error('Gửi thông tin ứng tuyển thất bại, vui lòng thử lại sau.');
+  } finally {
+    submittingApply.value = false;
+  }
+};
 </script>
 
 <template>
@@ -231,20 +234,6 @@ const newsList = [
         </router-link>
         <div class="px-5 pb-4 pt-0 flex items-center justify-between border-t border-neutral-100">
           <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
-          <button
-            @click.stop="handleAddToCart(item)"
-            :disabled="addingToCart === item.id || cartStore.loading"
-            :class="[
-              'flex items-center gap-2 px-4 py-2 uppercase text-sm font-semibold transition-colors duration-200 rounded-md',
-              addingToCart === item.id || cartStore.loading
-                ? 'bg-neutral-400 text-white cursor-not-allowed'
-                : 'bg-black text-white hover:bg-neutral-800 cursor-pointer'
-            ]"
-          >
-            <span class="text-xs">
-              {{ addingToCart === item.id ? 'Đang thêm...' : 'Add' }}
-            </span>
-          </button>
         </div>
       </div>
     </div>
@@ -290,19 +279,6 @@ const newsList = [
           <div class="flex items-baseline gap-2">
             <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
           </div>
-          <button
-            @click.stop="handleAddToCart(item)"
-            :disabled="addingToCart === item.id || cartStore.loading"
-            :class="[
-              'h-9 w-9 flex items-center justify-center border transition-colors duration-200 rounded-md',
-              addingToCart === item.id || cartStore.loading
-                ? 'border-neutral-300 bg-neutral-100 text-neutral-400 cursor-not-allowed'
-                : 'border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white cursor-pointer'
-            ]"
-          >
-            <span v-if="addingToCart === item.id">⏳</span>
-            <span v-else>🛒</span>
-          </button>
         </div>
       </div>
     </div>
@@ -362,11 +338,74 @@ const newsList = [
           <p class="text-neutral-700 text-sm leading-relaxed">
             Tham gia đội ngũ để lan tỏa hương vị Nhật Bản chính gốc. Ứng tuyển ngay!
           </p>
-          <button class="px-5 py-2 bg-black text-white font-semibold uppercase text-sm hover:bg-neutral-800 transition-colors duration-200">
+          <button
+            class="px-5 py-2 bg-black text-white font-semibold uppercase text-sm hover:bg-neutral-800 transition-colors duration-200"
+            @click="openApplyForm"
+          >
             Ứng tuyển
           </button>
         </div>
       </div>
     </div>
   </section>
+
+  <div
+    v-if="showApplyForm"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+  >
+    <div class="bg-white w-full max-w-md rounded-md shadow-xl p-6 relative">
+      <button
+        class="absolute top-3 right-3 text-neutral-500 hover:text-black text-xl leading-none"
+        type="button"
+        @click="closeApplyForm"
+      >
+        ×
+      </button>
+      <h2 class="text-xl font-semibold mb-4 text-neutral-900 text-center">
+        Ứng tuyển vị trí <span class="text-red-600">Nhân viên bán hàng</span>
+      </h2>
+      <form class="space-y-4" @submit.prevent="submitApply">
+        <div>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">Họ và tên *</label>
+          <input
+            v-model="applyForm.name"
+            type="text"
+            required
+            class="w-full px-3 py-2 border border-neutral-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-500 text-sm"
+            placeholder="Nhập họ và tên"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">Email *</label>
+          <input
+            v-model="applyForm.email"
+            type="email"
+            required
+            class="w-full px-3 py-2 border border-neutral-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-500 text-sm"
+            placeholder="your.email@example.com"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">Số điện thoại</label>
+          <input
+            v-model="applyForm.phone"
+            type="tel"
+            class="w-full px-3 py-2 border border-neutral-300 focus:border-red-600 focus:outline-none focus:ring-1 focus:ring-red-500 text-sm"
+            placeholder="+84 123 456 789"
+          />
+        </div>
+        <p class="text-xs text-neutral-500">
+          Khi gửi, hệ thống sẽ chuyển thông tin của bạn đến bộ phận tuyển dụng với tiêu đề
+          "<span class="font-semibold">Ứng tuyển - Nhân viên bán hàng</span>".
+        </p>
+        <button
+          type="submit"
+          :disabled="submittingApply"
+          class="w-full mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm font-semibold uppercase tracking-wide transition-colors duration-200"
+        >
+          {{ submittingApply ? 'Đang gửi...' : 'Gửi ứng tuyển' }}
+        </button>
+      </form>
+    </div>
+  </div>
 </template>

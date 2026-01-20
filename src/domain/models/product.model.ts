@@ -8,6 +8,7 @@ export interface Product {
   weight?: number;
   weightUnit?: string;
   expiryInfo?: string;
+  imageUrl?: string;
   status: 'ACTIVE' | 'INACTIVE';
   category?: {
     id: number;
@@ -35,6 +36,7 @@ export interface ProductVariant {
   price: number;
   stock: number;
   attributes?: Record<string, any>;
+  imageUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -59,6 +61,7 @@ export interface CreateProductRequest {
   weight?: number;
   weightUnit?: string;
   expiryInfo?: string;
+  imageUrl?: string;
   status?: 'ACTIVE' | 'INACTIVE';
 }
 
@@ -72,6 +75,7 @@ export interface UpdateProductRequest {
   weight?: number;
   weightUnit?: string;
   expiryInfo?: string;
+  imageUrl?: string;
   status?: 'ACTIVE' | 'INACTIVE';
 }
 
@@ -81,6 +85,7 @@ export interface CreateVariantRequest {
   price: number;
   stock: number;
   attributes?: Record<string, any>;
+  imageUrl?: string;
 }
 
 export interface UpdateVariantRequest {

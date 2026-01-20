@@ -7,11 +7,9 @@ import CategoryService from '@/core/services/api/category.service';
 import type { CategoryTreeResponse } from '@/domain/models/category.model';
 import { useMessage } from 'naive-ui';
 import { useRoute } from 'vue-router';
-import useCartStore from '@/ui/stores/cart.store';
 
 const message = useMessage();
 const route = useRoute();
-const cartStore = useCartStore();
 
 const allProducts = ref<PublicProduct[]>([]);
 const categories = ref<CategoryTreeResponse[]>([]);
@@ -137,50 +135,6 @@ watch(searchQuery, () => {
 
 // Không tự động gọi API khi filter thay đổi, chỉ gọi khi ấn nút "Áp dụng lọc"
 
-// Thêm sản phẩm vào giỏ hàng
-const addingToCart = ref<number | null>(null); // Track product đang được thêm
-
-const handleAddToCart = async (product: PublicProduct) => {
-  // Prevent double click và prevent khi đang loading
-  if (addingToCart.value === product.id || cartStore.loading) {
-    return;
-  }
-  
-  try {
-    addingToCart.value = product.id;
-    
-    // Lấy chi tiết sản phẩm để có variants
-    const productDetail = await PublicProductService.getProductBySlug(product.slug);
-    
-    // Kiểm tra có variants không
-    if (!productDetail.variants || productDetail.variants.length === 0) {
-      message.warning('Sản phẩm này chưa có biến thể để thêm vào giỏ hàng');
-      return;
-    }
-    
-    // Tìm variant đầu tiên có stock > 0
-    const availableVariant = productDetail.variants.find(v => v.stock > 0);
-    
-    if (!availableVariant) {
-      message.warning('Sản phẩm này đã hết hàng');
-      return;
-    }
-    
-    // Thêm vào giỏ hàng với số lượng 1
-    // addItem đã trả về cart mới, không cần gọi loadCart() lại
-    await cartStore.addItem(availableVariant.id, 1);
-    message.success(`Đã thêm "${product.name}" vào giỏ hàng`);
-    
-    // Không cần reload cart vì addItem đã cập nhật cart.value rồi
-    // Cart store sẽ tự động cập nhật totalItems computed
-  } catch (error: any) {
-    console.error('Error adding to cart:', error);
-    const errorMsg = error?.response?.data?.message || error?.message || 'Không thể thêm sản phẩm vào giỏ hàng';
-    message.error(errorMsg);
-  } finally {
-    addingToCart.value = null;
-  }
-};
 
 onMounted(() => {
   // Chỉ load products khi vào trang, không có filter
@@ -451,19 +405,6 @@ onMounted(() => {
             <div class="flex items-baseline gap-2">
               <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
             </div>
-            <button
-              @click.stop="handleAddToCart(item)"
-              :disabled="addingToCart === item.id || cartStore.loading"
-              :class="[
-                'h-9 w-9 flex items-center justify-center border transition-all duration-200 rounded-md',
-                addingToCart === item.id || cartStore.loading
-                  ? 'border-neutral-300 bg-neutral-100 text-neutral-400 cursor-not-allowed'
-                  : 'border-neutral-300 hover:border-[#b3000f] hover:bg-[#b3000f] hover:text-white cursor-pointer'
-              ]"
-            >
-              <span v-if="addingToCart === item.id">⏳</span>
-              <span v-else>🛒</span>
-            </button>
           </div>
         </div>
       </div>
