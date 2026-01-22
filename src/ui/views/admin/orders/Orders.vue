@@ -14,15 +14,17 @@ import {
   NDivider,
   NSpace,
   NImage,
+  NDatePicker,
   type SelectOption
 } from 'naive-ui';
-import { Eye, Check, X, Cash } from '@vicons/tabler';
+import { Eye, Check, X, Cash, Download } from '@vicons/tabler';
 import OrderService from '@/core/services/api/order.service';
 import type { Order, OrderStatus } from '@/domain/models/order.model';
 
 const message = useMessage();
 
 const loading = ref(false);
+const exporting = ref(false);
 const orders = ref<Order[]>([]);
 const statusFilter = ref<OrderStatus | null>(null);
 const pagination = ref({
@@ -40,6 +42,10 @@ const selectedOrder = ref<Order | null>(null);
 const showCancelModal = ref(false);
 const cancelReason = ref('');
 const cancelLoading = ref(false);
+
+// Export filters
+const exportStartDate = ref<number | null>(null);
+const exportEndDate = ref<number | null>(null);
 
 // Status options theo API documentation
 const orderStatusOptions = [
@@ -129,9 +135,17 @@ const columns = [
   {
     title: 'Trạng thái',
     key: 'status',
-    width: 120,
+    width: 180,
     render: (row: Order) => {
-      return h(NTag, { type: getStatusTagType(row.status), size: 'small' }, { default: () => getStatusLabel(row.status) });
+      return h(NSelect, {
+        value: row.status,
+        options: orderStatusSelectOptions.filter(opt => 
+          ['PENDING', 'PAID', 'SHIPPING', 'COMPLETED', 'CANCELLED'].includes(opt.value)
+        ),
+        size: 'small',
+        onUpdateValue: (value: OrderStatus) => handleUpdateStatusDirect(row, value),
+        style: { minWidth: '150px' }
+      });
     },
   },
   {
@@ -309,10 +323,59 @@ const handleUpdateStatus = async (status: OrderStatus) => {
   }
 };
 
+const handleUpdateStatusDirect = async (order: Order, status: OrderStatus) => {
+  try {
+    await OrderService.updateOrderStatus(order.id, { status });
+    message.success('Cập nhật trạng thái đơn hàng thành công');
+    await loadOrders();
+  } catch (error: any) {
+    message.error(error.response?.data?.message || 'Lỗi khi cập nhật trạng thái');
+  }
+};
+
 const handleStatusFilterChange = (value: OrderStatus | null) => {
   statusFilter.value = value;
   pagination.value.page = 1;
   loadOrders();
+};
+
+const downloadFile = (blob: Blob, filename: string) => {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
+
+const handleExportOrders = async () => {
+  try {
+    exporting.value = true;
+    const params: { status?: OrderStatus; startDate?: string; endDate?: string } = {};
+    
+    if (statusFilter.value) {
+      params.status = statusFilter.value;
+    }
+    if (exportStartDate.value) {
+      params.startDate = new Date(exportStartDate.value).toISOString().split('T')[0];
+    }
+    if (exportEndDate.value) {
+      params.endDate = new Date(exportEndDate.value).toISOString().split('T')[0];
+    }
+
+    const blob = await OrderService.exportOrders(params);
+    const statusStr = params.status || 'all';
+    const dateStr = `${params.startDate || 'all'}-${params.endDate || 'all'}`;
+    const filename = `don-hang-${statusStr}-${dateStr}.xlsx`;
+    downloadFile(blob, filename);
+    message.success('Xuất file đơn hàng thành công');
+  } catch (error: any) {
+    message.error(error.response?.data?.message || 'Lỗi khi xuất file đơn hàng');
+  } finally {
+    exporting.value = false;
+  }
 };
 
 onMounted(() => {
@@ -324,6 +387,30 @@ onMounted(() => {
   <div class="p-6">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-3xl font-bold text-gray-800">Quản lý đơn hàng</h1>
+      <div class="flex gap-2 items-end">
+        <div class="flex gap-2">
+          <NDatePicker
+            v-model:value="exportStartDate"
+            type="date"
+            placeholder="Từ ngày"
+            clearable
+            style="width: 150px"
+          />
+          <NDatePicker
+            v-model:value="exportEndDate"
+            type="date"
+            placeholder="Đến ngày"
+            clearable
+            style="width: 150px"
+          />
+        </div>
+        <NButton type="primary" :loading="exporting" @click="handleExportOrders">
+          <template #icon>
+            <NIcon><Download /></NIcon>
+          </template>
+          Xuất file đơn hàng
+        </NButton>
+      </div>
     </div>
 
     <!-- Filter -->

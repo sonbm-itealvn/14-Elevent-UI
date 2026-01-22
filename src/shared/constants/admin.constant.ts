@@ -6,8 +6,8 @@ import {
   Package, 
   ShoppingCart, 
   Receipt, 
-  Photo,
-  Ticket
+  Ticket,
+  TrendingUp
 } from "@vicons/tabler";
 
 const adminConstants: Header[] = [
@@ -48,10 +48,10 @@ const adminConstants: Header[] = [
     to: "/admin/invoices",
   },
   {
-    id: "admin-media",
-    icon: Photo,
-    title: "Quản lý media",
-    to: "/admin/media",
+    id: "admin-revenue",
+    icon: TrendingUp,
+    title: "Báo cáo doanh thu",
+    to: "/admin/revenue",
   },
   {
     id: "admin-vouchers",

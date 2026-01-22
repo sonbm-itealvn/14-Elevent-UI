@@ -1,4 +1,5 @@
 import HttpService from "./http.service";
+import axiosInstance from "@/core/interceptors/axios.instance";
 import type {
   Order,
   AdminOrderPageResponse,
@@ -34,7 +35,7 @@ class OrderService {
   }): Promise<AdminOrderPageResponse> {
     const response = await this.httpService.get<AdminOrderPageResponse>(
       "/api/admin/orders",
-      { params }
+      params
     );
     // HttpService.get() trả về BaseResponse<T>, nên response.data là AdminOrderPageResponse | undefined
     // Xử lý trường hợp data có thể null hoặc orders rỗng - không phải lỗi
@@ -115,10 +116,10 @@ class OrderService {
    * Lấy thống kê dashboard - GET /api/admin/dashboard/stats
    */
   async getDashboardStats(): Promise<DashboardStatsResponse> {
-    const response = await this.httpService.get<ApiResponse<DashboardStatsResponse>>(
+    const response = await this.httpService.get<DashboardStatsResponse>(
       "/api/admin/dashboard/stats"
     );
-    return response.data!.data;
+    return response.data!;
   }
 
   /**
@@ -133,6 +134,41 @@ class OrderService {
       data
     );
     return response.data!.data;
+  }
+
+  /**
+   * Xuất file Excel doanh thu - GET /api/admin/dashboard/export-revenue
+   */
+  async exportRevenue(params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Blob> {
+    const response = await axiosInstance.get(
+      "/api/admin/dashboard/export-revenue",
+      {
+        params,
+        responseType: 'blob',
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Xuất file Excel đơn hàng - GET /api/admin/orders/export
+   */
+  async exportOrders(params?: {
+    status?: OrderStatus;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Blob> {
+    const response = await axiosInstance.get(
+      "/api/admin/orders/export",
+      {
+        params,
+        responseType: 'blob',
+      }
+    );
+    return response.data;
   }
 }
 

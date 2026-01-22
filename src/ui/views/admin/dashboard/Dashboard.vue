@@ -1,71 +1,53 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { NGrid, NGridItem, NStatistic, NCard, NDataTable } from 'naive-ui';
+import { ref, onMounted, h } from 'vue';
+import { NGrid, NGridItem, NStatistic, NCard, NDataTable, NTag, useMessage, NSpin } from 'naive-ui';
+import OrderService from '@/core/services/api/order.service';
+import type { DashboardStatsResponse } from '@/domain/models/order.model';
 
-const stats = ref({
-  totalUsers: 0,
-  totalOrders: 0,
-  totalProducts: 0,
-  totalRevenue: 0,
-});
-
-const recentOrders = ref<any[]>([]);
+const message = useMessage();
 const loading = ref(false);
+const stats = ref<DashboardStatsResponse | null>(null);
 
-// Mock data for UI preview
-const mockRecentOrders = [
-  {
-    id: 1,
-    orderNumber: 'ORD-001',
-    user: { fullName: 'Trần Thị User', email: 'user1@example.com' },
-    totalAmount: 25000000,
-    status: 'PENDING',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    orderNumber: 'ORD-002',
-    user: { fullName: 'Lê Văn Test', email: 'user2@example.com' },
-    totalAmount: 200000,
-    status: 'CONFIRMED',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-];
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+};
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('vi-VN');
+};
+
+const getStatusTagType = (status: string) => {
+  const statusMap: Record<string, 'default' | 'info' | 'success' | 'warning' | 'error'> = {
+    PENDING: 'default',
+    PAID: 'info',
+    CONFIRMED: 'info',
+    SHIPPING: 'warning',
+    COMPLETED: 'success',
+    CANCELLED: 'error',
+  };
+  return statusMap[status] || 'default';
+};
+
+const getStatusLabel = (status: string) => {
+  const statusMap: Record<string, string> = {
+    PENDING: 'Chờ xử lý',
+    PAID: 'Đã thanh toán',
+    CONFIRMED: 'Đã xác nhận',
+    SHIPPING: 'Đang giao hàng',
+    COMPLETED: 'Hoàn thành',
+    CANCELLED: 'Đã hủy',
+  };
+  return statusMap[status] || status;
+};
 
 const loadStats = async () => {
   try {
     loading.value = true;
-    
-    // Mock data for UI preview
-    setTimeout(() => {
-      stats.value = {
-        totalUsers: 5,
-        totalOrders: 2,
-        totalProducts: 3,
-        totalRevenue: 27720000,
-      };
-      recentOrders.value = mockRecentOrders;
-      loading.value = false;
-    }, 300);
-    
-    // Real API call - uncomment when ready
-    // const usersResponse = await UserService.getUsers({ page: 0, size: 1 });
-    // stats.value.totalUsers = usersResponse.pagination.total;
-    // const ordersResponse = await OrderService.getOrders({ page: 0, size: 5 });
-    // stats.value.totalOrders = ordersResponse.pagination.total;
-    // recentOrders.value = ordersResponse.data;
-    // const productsResponse = await ProductService.getProducts({ page: 0, size: 1 });
-    // stats.value.totalProducts = productsResponse.pagination.total;
-    // const endDate = new Date();
-    // const startDate = new Date();
-    // startDate.setMonth(startDate.getMonth() - 1);
-    // const revenueReport = await InvoiceService.getRevenueReport({
-    //   startDate: startDate.toISOString(),
-    //   endDate: endDate.toISOString(),
-    // });
-    // stats.value.totalRevenue = revenueReport.totalRevenue;
+    const response = await OrderService.getDashboardStats();
+    stats.value = response;
   } catch (error: any) {
-    console.error('Error loading stats:', error);
+    message.error(error.response?.data?.message || 'Lỗi khi tải thống kê');
+  } finally {
     loading.value = false;
   }
 };
@@ -76,49 +58,124 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
-    <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
+  <div class="p-6">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">Dashboard</h1>
     
-    <NGrid :cols="4" :x-gap="12" class="mb-6">
-      <NGridItem>
-        <NCard>
-          <NStatistic label="Tổng người dùng" :value="stats.totalUsers" />
-        </NCard>
-      </NGridItem>
-      <NGridItem>
-        <NCard>
-          <NStatistic label="Tổng đơn hàng" :value="stats.totalOrders" />
-        </NCard>
-      </NGridItem>
-      <NGridItem>
-        <NCard>
-          <NStatistic label="Tổng sản phẩm" :value="stats.totalProducts" />
-        </NCard>
-      </NGridItem>
-      <NGridItem>
-        <NCard>
-          <NStatistic 
-            label="Doanh thu (30 ngày)" 
-            :value="new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stats.totalRevenue)" 
+    <NSpin :show="loading">
+      <div v-if="stats">
+        <NGrid :cols="4" :x-gap="12" :y-gap="12" class="mb-6">
+          <NGridItem>
+            <NCard>
+              <NStatistic 
+                label="Tổng doanh thu" 
+                :value="formatCurrency(stats.overall.totalRevenue)" 
+              />
+            </NCard>
+          </NGridItem>
+          <NGridItem>
+            <NCard>
+              <NStatistic 
+                label="Tổng đơn hàng" 
+                :value="stats.overall.totalOrders" 
+              />
+            </NCard>
+          </NGridItem>
+          <NGridItem>
+            <NCard>
+              <NStatistic 
+                label="Đơn hàng hoàn thành" 
+                :value="stats.overall.completedOrders" 
+              />
+            </NCard>
+          </NGridItem>
+          <NGridItem>
+            <NCard>
+              <NStatistic 
+                label="Giá trị đơn hàng trung bình" 
+                :value="formatCurrency(stats.overall.averageOrderValue)" 
+              />
+            </NCard>
+          </NGridItem>
+        </NGrid>
+
+        <NGrid :cols="4" :x-gap="12" :y-gap="12" class="mb-6">
+          <NGridItem>
+            <NCard>
+              <NStatistic 
+                label="Doanh thu hôm nay" 
+                :value="formatCurrency(stats.revenue.todayRevenue)" 
+              />
+            </NCard>
+          </NGridItem>
+          <NGridItem>
+            <NCard>
+              <NStatistic 
+                label="Doanh thu tuần này" 
+                :value="formatCurrency(stats.revenue.thisWeekRevenue)" 
+              />
+            </NCard>
+          </NGridItem>
+          <NGridItem>
+            <NCard>
+              <NStatistic 
+                label="Doanh thu tháng này" 
+                :value="formatCurrency(stats.revenue.thisMonthRevenue)" 
+              />
+            </NCard>
+          </NGridItem>
+          <NGridItem>
+            <NCard>
+              <NStatistic 
+                label="Đơn hàng hôm nay" 
+                :value="stats.orderCounts.todayOrders" 
+              />
+            </NCard>
+          </NGridItem>
+        </NGrid>
+
+        <NCard title="Đơn hàng gần đây" class="mt-6">
+          <NDataTable
+            :columns="[
+              { 
+                title: 'ID đơn hàng', 
+                key: 'orderId',
+                width: 120,
+              },
+              { 
+                title: 'Email khách hàng', 
+                key: 'buyerEmail',
+                width: 250,
+              },
+              { 
+                title: 'Tổng tiền', 
+                key: 'totalAmount', 
+                width: 150,
+                align: 'right',
+                render: (row) => h('span', { class: 'font-semibold text-red-600' }, formatCurrency(row.totalAmount))
+              },
+              { 
+                title: 'Trạng thái', 
+                key: 'status',
+                width: 120,
+                render: (row) => {
+                  return h(NTag, { type: getStatusTagType(row.status), size: 'small' }, { default: () => getStatusLabel(row.status) });
+                }
+              },
+              { 
+                title: 'Ngày tạo', 
+                key: 'createdAt',
+                width: 180,
+                render: (row) => formatDate(row.createdAt)
+              },
+            ]"
+            :data="stats.recentOrders"
+            :loading="loading"
+            :bordered="true"
+            striped
           />
         </NCard>
-      </NGridItem>
-    </NGrid>
-
-    <NCard title="Đơn hàng gần đây" class="mt-6">
-      <NDataTable
-        :columns="[
-          { title: 'Mã đơn', key: 'orderNumber' },
-          { title: 'Khách hàng', key: 'user', render: (row) => row.user?.fullName || row.user?.email || '-' },
-          { title: 'Tổng tiền', key: 'totalAmount', render: (row) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.totalAmount) },
-          { title: 'Trạng thái', key: 'status' },
-          { title: 'Ngày tạo', key: 'createdAt', render: (row) => row.createdAt ? new Date(row.createdAt).toLocaleString('vi-VN') : '-' },
-        ]"
-        :data="recentOrders"
-        :loading="loading"
-        :bordered="true"
-      />
-    </NCard>
+      </div>
+    </NSpin>
   </div>
 </template>
 
