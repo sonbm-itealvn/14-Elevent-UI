@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { User, Mail, Phone, MapPin, Camera, DeviceFloppy, Edit } from '@vicons/tabler';
+import { ref, onMounted } from 'vue';
+import { User, Mail, Phone, Camera, DeviceFloppy, Edit } from '@vicons/tabler';
 import UserProfileService from '@/core/services/api/user-profile.service';
 import { useMessage } from 'naive-ui';
 import type { User as UserType } from '@/domain/models/user.model';
@@ -108,13 +108,7 @@ const handleAvatarChange = async (event: Event) => {
   }
 };
 
-const getInitials = computed(() => {
-  const names = userProfile.value.fullName.split(' ');
-  if (names.length >= 2) {
-    return (names[0][0] + names[names.length - 1][0]).toUpperCase();
-  }
-  return userProfile.value.fullName.substring(0, 2).toUpperCase();
-});
+// getInitials không còn dùng trong template, bỏ để tránh warning TS
 </script>
 
 <template>

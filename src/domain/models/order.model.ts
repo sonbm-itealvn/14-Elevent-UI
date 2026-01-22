@@ -1,5 +1,9 @@
+// Order Model based on ADMIN_ORDER_ENDPOINTS.md
+
 export interface Order {
   id: number;
+  orderCode?: string;
+  userId?: number;
   buyerEmail?: string;
   receiverName: string;
   receiverPhone: string;
@@ -7,9 +11,10 @@ export interface Order {
   shippingWard?: string;
   shippingDistrict?: string;
   shippingCity: string;
-  subtotal: number;
-  shippingFee: number;
-  voucherDiscount: number;
+  // Các trường này có thể không có trong list response, chỉ có trong detail
+  subtotal?: number;
+  shippingFee?: number;
+  voucherDiscount?: number;
   totalAmount: number;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
@@ -18,9 +23,11 @@ export interface Order {
   paymentTransactionNo?: string;
   paymentPaidAt?: string;
   note?: string;
-  items: OrderItem[];
+  // items có thể không có trong list response, chỉ có trong detail
+  items?: OrderItem[];
   createdAt?: string;
   updatedAt?: string;
+  itemCount?: number;
 }
 
 export interface OrderItem {
@@ -29,6 +36,7 @@ export interface OrderItem {
   productVariantId: number;
   productName: string;
   sku: string;
+  imageUrl?: string;
   attributes?: Record<string, any>;
   quantity: number;
   unitPrice: number;
@@ -38,6 +46,7 @@ export interface OrderItem {
 export enum OrderStatus {
   PENDING = 'PENDING',
   PAID = 'PAID',
+  CONFIRMED = 'CONFIRMED',
   SHIPPING = 'SHIPPING',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
@@ -58,6 +67,17 @@ export enum PaymentMethod {
   MOMO = 'MOMO',
 }
 
+// Response types for Admin API
+export interface AdminOrderPageResponse {
+  orders: Order[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
 export interface OrderPageResponse {
   content: Order[];
   page: number;
@@ -68,11 +88,68 @@ export interface OrderPageResponse {
   last: boolean;
 }
 
+// Request types
+export interface ApproveOrderRequest {
+  note?: string;
+}
+
 export interface UpdateOrderStatusRequest {
   status: OrderStatus;
+  note?: string;
+}
+
+export interface CancelOrderRequest {
+  reason: string;
 }
 
 export interface UpdatePaymentStatusRequest {
   paymentStatus: PaymentStatus;
 }
 
+// Dashboard Stats Response
+export interface DashboardStatsResponse {
+  overall: {
+    totalRevenue: number;
+    totalOrders: number;
+    pendingOrders: number;
+    completedOrders: number;
+    cancelledOrders: number;
+    averageOrderValue: number;
+  };
+  revenue: {
+    todayRevenue: number;
+    thisWeekRevenue: number;
+    thisMonthRevenue: number;
+    thisYearRevenue: number;
+    dailyRevenueLast7Days: Array<{
+      date: string;
+      revenue: number;
+      orderCount: number;
+    }>;
+    monthlyRevenueLast12Months: Array<{
+      year: number;
+      month: number;
+      revenue: number;
+      orderCount: number;
+    }>;
+  };
+  orderCounts: {
+    todayOrders: number;
+    thisWeekOrders: number;
+    thisMonthOrders: number;
+    thisYearOrders: number;
+  };
+  recentOrders: Array<{
+    orderId: number;
+    buyerEmail: string;
+    totalAmount: number;
+    status: OrderStatus;
+    createdAt: string;
+  }>;
+  topProducts: Array<{
+    productId: number;
+    productName: string;
+    totalSold: number;
+    totalRevenue: number;
+  }>;
+}

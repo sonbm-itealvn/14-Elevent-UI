@@ -191,18 +191,169 @@
         </div>
       </div>
     </n-spin>
+
+    <!-- Checkout Modal -->
+    <NModal
+      v-model:show="showCheckoutModal"
+      title="Thông tin giao hàng"
+      preset="card"
+      style="width: 600px"
+      :mask-closable="!submittingCheckout"
+      :close-on-esc="!submittingCheckout"
+    >
+      <NForm>
+        <NFormItem
+          v-if="!authStore.isAuthenticated"
+          label="Email"
+          required
+          :show-feedback="false"
+        >
+            <NInput
+              v-model:value="checkoutForm.buyerEmail"
+              type="text"
+              placeholder="your.email@example.com"
+              :disabled="submittingCheckout"
+            />
+        </NFormItem>
+
+        <NFormItem label="Họ và tên người nhận" required :show-feedback="false">
+          <NInput
+            v-model:value="checkoutForm.receiverName"
+            placeholder="Nhập họ và tên"
+            :disabled="submittingCheckout"
+          />
+        </NFormItem>
+
+        <NFormItem label="Số điện thoại" required :show-feedback="false">
+          <NInput
+            v-model:value="checkoutForm.receiverPhone"
+            placeholder="0123456789"
+            :disabled="submittingCheckout"
+          />
+        </NFormItem>
+
+        <NFormItem label="Địa chỉ" required :show-feedback="false">
+          <NInput
+            v-model:value="checkoutForm.shippingAddress"
+            placeholder="Số nhà, tên đường"
+            :disabled="submittingCheckout"
+          />
+        </NFormItem>
+
+        <NFormItem label="Phường/Xã" :show-feedback="false">
+          <NInput
+            v-model:value="checkoutForm.shippingWard"
+            placeholder="Phường/Xã"
+            :disabled="submittingCheckout"
+          />
+        </NFormItem>
+
+        <NFormItem label="Quận/Huyện" :show-feedback="false">
+          <NInput
+            v-model:value="checkoutForm.shippingDistrict"
+            placeholder="Quận/Huyện"
+            :disabled="submittingCheckout"
+          />
+        </NFormItem>
+
+        <NFormItem label="Thành phố/Tỉnh" required :show-feedback="false">
+          <NInput
+            v-model:value="checkoutForm.shippingCity"
+            placeholder="Hà Nội, TP.HCM, ..."
+            :disabled="submittingCheckout"
+          />
+        </NFormItem>
+
+        <NFormItem label="Ghi chú" :show-feedback="false">
+          <NInput
+            v-model:value="checkoutForm.note"
+            type="textarea"
+            placeholder="Ghi chú thêm cho đơn hàng (tùy chọn)"
+            :rows="3"
+            :disabled="submittingCheckout"
+          />
+        </NFormItem>
+
+        <div class="mt-4 p-3 bg-gray-50 rounded">
+          <div class="flex justify-between mb-2">
+            <span>Tạm tính:</span>
+            <span class="font-semibold">
+              {{ formatPrice(checkoutPreview?.subtotal || 0) }} VND
+            </span>
+          </div>
+          <div
+            v-if="checkoutPreview && checkoutPreview.discount > 0"
+            class="flex justify-between mb-2 text-green-600"
+          >
+            <span>Giảm giá:</span>
+            <span class="font-semibold">
+              -{{ formatPrice(checkoutPreview.discount) }} VND
+            </span>
+          </div>
+          <div class="flex justify-between mb-2">
+            <span>Phí vận chuyển:</span>
+            <span class="font-semibold">
+              {{ formatPrice(checkoutPreview?.shippingFee || 0) }} VND
+            </span>
+          </div>
+          <div class="flex justify-between pt-2 border-t border-gray-300">
+            <span class="font-bold">Tổng cộng:</span>
+            <span class="font-bold text-red-600 text-lg">
+              {{ formatPrice(checkoutPreview?.total || 0) }} VND
+            </span>
+          </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+          <p class="text-sm text-blue-800">
+            <strong>Phương thức thanh toán:</strong> Thanh toán khi nhận hàng
+            (COD)
+          </p>
+        </div>
+      </NForm>
+
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <NButton
+            :disabled="submittingCheckout"
+            @click="closeCheckoutModal"
+          >
+            Hủy
+          </NButton>
+          <NButton
+            type="primary"
+            :loading="submittingCheckout"
+            @click="handleCheckout"
+          >
+            {{ submittingCheckout ? "Đang xử lý..." : "Xác nhận đặt hàng" }}
+          </NButton>
+        </div>
+      </template>
+    </NModal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from "vue";
 import { useRouter } from "vue-router";
-import { NSpin, NEmpty, NButton, NInput, useMessage } from "naive-ui";
+import {
+  NSpin,
+  NEmpty,
+  NButton,
+  NInput,
+  NModal,
+  NForm,
+  NFormItem,
+  useMessage,
+} from "naive-ui";
 import useCartStore from "@/ui/stores/cart.store";
+import useAuthStore from "@/ui/stores/auth.store";
+import CheckoutService from "@/core/services/api/checkout.service";
 
 const router = useRouter();
 const message = useMessage();
 const cartStore = useCartStore();
+const authStore = useAuthStore();
 
 const voucherCode = ref("");
 const voucherError = ref<string | null>(null);
@@ -301,9 +452,108 @@ const goToProducts = () => {
   router.push({ name: "Products" });
 };
 
+const showCheckoutModal = ref(false);
+const checkoutForm = ref({
+  buyerEmail: "",
+  receiverName: "",
+  receiverPhone: "",
+  shippingAddress: "",
+  shippingWard: "",
+  shippingDistrict: "",
+  shippingCity: "",
+  note: "",
+});
+const submittingCheckout = ref(false);
+
 const goToCheckout = () => {
-  // TODO: Navigate to checkout page when implemented
-  message.info("Chức năng thanh toán đang được phát triển");
+  // Reset form
+  checkoutForm.value = {
+    buyerEmail: authStore.user?.email || "",
+    receiverName: authStore.user?.fullName || "",
+    receiverPhone: authStore.user?.phone || "",
+    shippingAddress: "",
+    shippingWard: "",
+    shippingDistrict: "",
+    shippingCity: "",
+    note: "",
+  };
+  showCheckoutModal.value = true;
+};
+
+const closeCheckoutModal = () => {
+  if (submittingCheckout.value) return;
+  showCheckoutModal.value = false;
+};
+
+const handleCheckout = async () => {
+  if (submittingCheckout.value) return;
+
+  // Validate form
+  if (!checkoutForm.value.receiverName.trim()) {
+    message.warning("Vui lòng nhập tên người nhận");
+    return;
+  }
+  if (!checkoutForm.value.receiverPhone.trim()) {
+    message.warning("Vui lòng nhập số điện thoại");
+    return;
+  }
+  if (!checkoutForm.value.shippingAddress.trim()) {
+    message.warning("Vui lòng nhập địa chỉ giao hàng");
+    return;
+  }
+  if (!checkoutForm.value.shippingCity.trim()) {
+    message.warning("Vui lòng nhập thành phố/tỉnh");
+    return;
+  }
+  // Guest cần email
+  if (!authStore.isAuthenticated && !checkoutForm.value.buyerEmail.trim()) {
+    message.warning("Vui lòng nhập email");
+    return;
+  }
+
+  submittingCheckout.value = true;
+  try {
+    const checkoutData = {
+      buyerEmail: authStore.isAuthenticated
+        ? undefined
+        : checkoutForm.value.buyerEmail.trim(),
+      receiverName: checkoutForm.value.receiverName.trim(),
+      receiverPhone: checkoutForm.value.receiverPhone.trim(),
+      shippingAddress: checkoutForm.value.shippingAddress.trim(),
+      shippingWard: checkoutForm.value.shippingWard.trim() || undefined,
+      shippingDistrict: checkoutForm.value.shippingDistrict.trim() || undefined,
+      shippingCity: checkoutForm.value.shippingCity.trim(),
+      paymentMethod: "COD" as const,
+      expectedTotal: checkoutPreview.value?.total,
+      note: checkoutForm.value.note.trim() || undefined,
+    };
+
+    const result = await CheckoutService.confirmCheckout(
+      checkoutData,
+      cartStore.cartToken || undefined
+    );
+
+    message.success(
+      `Đặt hàng thành công! Mã đơn hàng: ${result.orderCode}`
+    );
+    
+    // Reset cart store và reload để đảm bảo giỏ hàng được làm mới
+    cartStore.reset();
+    await cartStore.loadCart();
+    showCheckoutModal.value = false;
+    
+    // Redirect to order success page or home
+    router.push({ name: "Home" });
+  } catch (error: any) {
+    console.error("Error during checkout:", error);
+    const errorMsg =
+      error?.response?.data?.message ||
+      error?.message ||
+      "Không thể đặt hàng. Vui lòng thử lại sau.";
+    message.error(errorMsg);
+  } finally {
+    submittingCheckout.value = false;
+  }
 };
 </script>
 

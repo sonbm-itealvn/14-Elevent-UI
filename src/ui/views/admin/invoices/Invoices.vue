@@ -1,30 +1,27 @@
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue';
-import { 
-  NDataTable, 
-  NButton, 
-  NModal, 
-  NForm, 
-  NFormItem, 
-  NInput,
+import {
+  NDataTable,
+  NButton,
+  NModal,
+  NForm,
+  NFormItem,
   NInputNumber,
   NSelect,
   NDatePicker,
   useMessage,
   NIcon,
   NTag,
-  NCard,
-  NDescriptions,
-  NDescriptionsItem,
   NDivider,
   NStatistic,
   NGrid,
-  NGridItem
+  NGridItem,
 } from 'naive-ui';
-import { Plus, Pencil, Trash, TrendingUp } from '@vicons/tabler';
+import { Plus, Pencil, TrendingUp } from '@vicons/tabler';
 import InvoiceService from '@/core/services/api/invoice.service';
 import OrderService from '@/core/services/api/order.service';
-import type { Invoice, InvoiceStatus, CreateInvoiceRequest, UpdateInvoiceRequest, RevenueReport } from '@/domain/models/invoice.model';
+import { InvoiceStatus } from '@/domain/models/invoice.model';
+import type { Invoice, RevenueReport, CreateInvoiceRequest, UpdateInvoiceRequest } from '@/domain/models/invoice.model';
 import type { Order } from '@/domain/models/order.model';
 
 const message = useMessage();
@@ -47,27 +44,37 @@ const modalTitle = ref('Tạo hóa đơn mới');
 const editingInvoice = ref<Invoice | null>(null);
 const formRef = ref();
 
-const formData = ref<CreateInvoiceRequest>({
+type InvoiceForm = {
+  orderId: number;
+  amount: number;
+  tax?: number;
+  discount?: number;
+  dueDate: number | null;
+};
+
+const formData = ref<InvoiceForm>({
   orderId: 0,
   amount: 0,
   tax: 0,
   discount: 0,
-  dueDate: undefined,
+  dueDate: null,
 });
 
-const invoiceStatusOptions = [
-  { label: 'Nháp', value: 'DRAFT' },
-  { label: 'Đã phát hành', value: 'ISSUED' },
-  { label: 'Đã thanh toán', value: 'PAID' },
-  { label: 'Đã hủy', value: 'CANCELLED' },
+const invoiceStatusOptions: { label: string; value: InvoiceStatus }[] = [
+  { label: 'Nháp', value: InvoiceStatus.DRAFT },
+  { label: 'Đã phát hành', value: InvoiceStatus.ISSUED },
+  { label: 'Đã thanh toán', value: InvoiceStatus.PAID },
+  { label: 'Đã hủy', value: InvoiceStatus.CANCELLED },
 ];
 
-const getStatusTagType = (status: string) => {
-  const statusMap: Record<string, string> = {
-    DRAFT: 'default',
-    ISSUED: 'info',
-    PAID: 'success',
-    CANCELLED: 'error',
+const getStatusTagType = (
+  status: InvoiceStatus
+): 'default' | 'error' | 'success' | 'warning' | 'primary' | 'info' => {
+  const statusMap: Record<InvoiceStatus, 'default' | 'error' | 'success' | 'warning' | 'primary' | 'info'> = {
+    [InvoiceStatus.DRAFT]: 'default',
+    [InvoiceStatus.ISSUED]: 'info',
+    [InvoiceStatus.PAID]: 'success',
+    [InvoiceStatus.CANCELLED]: 'error',
   };
   return statusMap[status] || 'default';
 };
@@ -87,7 +94,7 @@ const columns = [
     title: 'Mã đơn hàng',
     key: 'order',
     width: 150,
-    render: (row: Invoice) => row.order?.orderNumber || '-',
+    render: (row: Invoice) => row.order?.orderNumber || row.orderId,
   },
   {
     title: 'Số tiền',
@@ -133,35 +140,6 @@ const columns = [
   },
 ];
 
-// Mock data for UI preview
-const mockInvoices: Invoice[] = [
-  {
-    id: 1,
-    invoiceNumber: 'INV-001',
-    orderId: 1,
-    order: { id: 1, orderNumber: 'ORD-001', totalAmount: 25000000 },
-    amount: 25000000,
-    tax: 2500000,
-    discount: 0,
-    totalAmount: 27500000,
-    status: 'ISSUED',
-    issuedAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    invoiceNumber: 'INV-002',
-    orderId: 2,
-    order: { id: 2, orderNumber: 'ORD-002', totalAmount: 200000 },
-    amount: 200000,
-    tax: 20000,
-    discount: 0,
-    totalAmount: 220000,
-    status: 'PAID',
-    issuedAt: new Date(Date.now() - 86400000).toISOString(),
-    paidAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-];
-
 const loadInvoices = async () => {
   try {
     loading.value = true;
@@ -180,52 +158,13 @@ const loadInvoices = async () => {
   }
 };
 
-// Mock orders for invoice creation
-const mockOrdersForInvoice: Order[] = [
-  {
-    id: 1,
-    orderNumber: 'ORD-001',
-    userId: 1,
-    totalAmount: 25000000,
-    status: 'PENDING',
-    paymentStatus: 'PENDING',
-    shippingAddress: {
-      fullName: 'Trần Thị User',
-      phone: '0987654321',
-      address: '123 Đường ABC',
-      city: 'Hồ Chí Minh',
-      district: 'Quận 1',
-      ward: 'Phường Bến Nghé',
-    },
-    items: [],
-  },
-  {
-    id: 2,
-    orderNumber: 'ORD-002',
-    userId: 2,
-    totalAmount: 200000,
-    status: 'CONFIRMED',
-    paymentStatus: 'PAID',
-    shippingAddress: {
-      fullName: 'Lê Văn Test',
-      phone: '0912345678',
-      address: '456 Đường XYZ',
-      city: 'Hà Nội',
-      district: 'Quận Hoàn Kiếm',
-      ward: 'Phường Tràng Tiền',
-    },
-    items: [],
-  },
-];
-
 const loadOrders = async () => {
   try {
-    // Mock data for UI preview
-    orders.value = mockOrdersForInvoice;
-    
-    // Real API call - uncomment when ready
-    // const response = await OrderService.getOrders({ page: 0, size: 100 });
-    // orders.value = response.data;
+    const response = await OrderService.getOrders({
+      page: 0,
+      size: 100,
+    });
+    orders.value = response.orders;
   } catch (error: any) {
     message.error('Lỗi khi tải danh sách đơn hàng');
   }
@@ -233,38 +172,16 @@ const loadOrders = async () => {
 
 const loadRevenueReport = async () => {
   try {
-    // Mock data for UI preview
     const endDate = new Date();
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - 1);
-    
-    revenueReport.value = {
-      totalRevenue: 27720000,
-      totalOrders: 2,
-      averageOrderValue: 13860000,
-      period: {
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-      },
-      dailyRevenue: [
-        { date: new Date(Date.now() - 7 * 86400000).toISOString(), revenue: 10000000, orders: 1 },
-        { date: new Date(Date.now() - 6 * 86400000).toISOString(), revenue: 15000000, orders: 2 },
-        { date: new Date(Date.now() - 5 * 86400000).toISOString(), revenue: 8000000, orders: 1 },
-        { date: new Date(Date.now() - 4 * 86400000).toISOString(), revenue: 12000000, orders: 1 },
-        { date: new Date(Date.now() - 3 * 86400000).toISOString(), revenue: 20000000, orders: 3 },
-        { date: new Date(Date.now() - 2 * 86400000).toISOString(), revenue: 220000, orders: 1 },
-        { date: new Date(Date.now() - 1 * 86400000).toISOString(), revenue: 27500000, orders: 1 },
-      ],
-    };
+
+    const report = await InvoiceService.getRevenueReport({
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    });
+    revenueReport.value = report;
     showRevenueModal.value = true;
-    
-    // Real API call - uncomment when ready
-    // const report = await InvoiceService.getRevenueReport({
-    //   startDate: startDate.toISOString(),
-    //   endDate: endDate.toISOString(),
-    // });
-    // revenueReport.value = report;
-    // showRevenueModal.value = true;
   } catch (error: any) {
     message.error('Lỗi khi tải báo cáo doanh thu');
   }
@@ -277,7 +194,7 @@ const handleCreate = () => {
     amount: 0,
     tax: 0,
     discount: 0,
-    dueDate: undefined,
+    dueDate: null,
   };
   modalTitle.value = 'Tạo hóa đơn mới';
   showModal.value = true;
@@ -292,7 +209,7 @@ const handleEdit = async (invoice: Invoice) => {
       amount: fullInvoice.amount,
       tax: fullInvoice.tax || 0,
       discount: fullInvoice.discount || 0,
-      dueDate: fullInvoice.dueDate,
+      dueDate: fullInvoice.dueDate ? new Date(fullInvoice.dueDate).getTime() : null,
     };
     modalTitle.value = 'Chỉnh sửa hóa đơn';
     showModal.value = true;
@@ -305,29 +222,27 @@ const handleSave = async () => {
   try {
     await formRef.value?.validate();
     
-    // Real API call
+    const submitData: CreateInvoiceRequest | UpdateInvoiceRequest = {
+      orderId: formData.value.orderId,
+      amount: formData.value.amount,
+      tax: formData.value.tax,
+      discount: formData.value.discount,
+      dueDate: formData.value.dueDate
+        ? new Date(formData.value.dueDate).toISOString().slice(0, 19)
+        : undefined,
+    };
+
     if (editingInvoice.value) {
-      await InvoiceService.updateInvoice(editingInvoice.value.id, formData.value as UpdateInvoiceRequest);
+      await InvoiceService.updateInvoice(editingInvoice.value.id, submitData as UpdateInvoiceRequest);
       message.success('Cập nhật hóa đơn thành công');
     } else {
-      await InvoiceService.createInvoice(formData.value);
+      await InvoiceService.createInvoice(submitData as CreateInvoiceRequest);
       message.success('Tạo hóa đơn thành công');
     }
     showModal.value = false;
     await loadInvoices();
   } catch (error: any) {
     message.error(error.response?.data?.message || 'Lỗi khi lưu hóa đơn');
-  }
-};
-
-const handleDelete = async (invoiceId: number) => {
-  try {
-    // Real API call
-    await InvoiceService.deleteInvoice(invoiceId);
-    message.success('Xóa hóa đơn thành công');
-    await loadInvoices();
-  } catch (error: any) {
-    message.error(error.response?.data?.message || 'Lỗi khi xóa hóa đơn');
   }
 };
 
@@ -380,7 +295,7 @@ onMounted(() => {
         <NFormItem label="Đơn hàng" path="orderId" :rule="{ required: true, type: 'number', min: 1, message: 'Vui lòng chọn đơn hàng' }">
           <NSelect
             v-model:value="formData.orderId"
-            :options="orders.map(o => ({ label: `${o.orderNumber} - ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(o.totalAmount)}`, value: o.id }))"
+            :options="orders.map(o => ({ label: `${o.orderCode || `#${o.id}`} - ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(o.totalAmount)}`, value: o.id }))"
             placeholder="Chọn đơn hàng"
             :disabled="!!editingInvoice"
           />

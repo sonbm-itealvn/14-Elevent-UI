@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, h, computed } from 'vue';
-import { 
-  NDataTable, 
-  NButton, 
-  NModal, 
-  NForm, 
-  NFormItem, 
-  NInput, 
+import {
+  NDataTable,
+  NButton,
+  NModal,
+  NForm,
+  NFormItem,
+  NInput,
   NSwitch,
   NPopconfirm,
   useMessage,
@@ -19,7 +19,7 @@ import {
   NUpload,
   NImage,
   NTag,
-  type UploadFileInfo
+  type UploadFileInfo,
 } from 'naive-ui';
 import { Plus, Pencil, Trash, Photo as ImageIcon, Eye } from '@vicons/tabler';
 import ProductService from '@/core/services/api/product.service';
@@ -48,7 +48,8 @@ const editingProduct = ref<Product | null>(null);
 const viewingProduct = ref<Product | null>(null);
 const formRef = ref();
 
-const formData = ref<CreateProductRequest>({
+// formData mở rộng thêm field active chỉ dùng cho UI, backend nhận status
+const formData = ref<CreateProductRequest & { active: boolean }>({
   name: '',
   slug: '',
   description: '',
@@ -124,7 +125,8 @@ const columns = [
     title: 'Giá',
     key: 'price',
     width: 120,
-    render: (row: Product) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.price),
+    render: (row: Product) =>
+      new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.minPrice ?? 0),
   },
   {
     title: 'Trạng thái',
@@ -173,18 +175,6 @@ const columns = [
       ];
     },
   },
-];
-
-// Mock data for UI preview
-const mockProducts: Product[] = [
-  { id: 1, name: 'iPhone 15 Pro', slug: 'iphone-15-pro', description: 'Điện thoại thông minh cao cấp', categoryId: 1, price: 25000000, brand: 'Apple', origin: 'Trung Quốc', active: true, category: { id: 1, name: 'Điện thoại', slug: 'dien-thoai' } },
-  { id: 2, name: 'MacBook Pro M3', slug: 'macbook-pro-m3', description: 'Laptop chuyên nghiệp', categoryId: 1, price: 45000000, brand: 'Apple', origin: 'Trung Quốc', active: true, category: { id: 1, name: 'Laptop', slug: 'laptop' } },
-  { id: 3, name: 'Áo thun nam', slug: 'ao-thun-nam', description: 'Áo thun chất lượng cao', categoryId: 2, price: 200000, brand: 'Uniqlo', origin: 'Việt Nam', active: true, category: { id: 2, name: 'Quần áo', slug: 'quan-ao' } },
-];
-
-const mockCategories: Category[] = [
-  { id: 1, name: 'Điện tử', slug: 'dien-tu', description: 'Sản phẩm điện tử', active: true },
-  { id: 2, name: 'Quần áo', slug: 'quan-ao', description: 'Thời trang quần áo', active: true },
 ];
 
 const loadProducts = async () => {
@@ -359,11 +349,19 @@ const handleSave = async () => {
       message.success('Cập nhật sản phẩm thành công');
     } else {
       // Create product first with imageUrl = null
-      const productData = {
-        ...formData.value,
+      const productData: CreateProductRequest = {
+        categoryId: formData.value.categoryId,
+        name: formData.value.name,
+        slug: formData.value.slug,
+        description: formData.value.description,
+        brand: formData.value.brand,
+        origin: formData.value.origin,
+        weight: formData.value.weight,
+        weightUnit: formData.value.weightUnit,
+        expiryInfo: formData.value.expiryInfo,
+        imageUrl: formData.value.imageUrl,
         status: formData.value.active ? 'ACTIVE' : 'INACTIVE',
       };
-      delete (productData as any).active;
       // Don't include imageUrl - create with null
 
       const created = await ProductService.createProduct(productData);
@@ -540,17 +538,6 @@ const handleDeleteVariant = async (variantId: number) => {
   }
 };
 
-const handleDeleteImage = async (imageId: number) => {
-  if (!editingProduct.value) return;
-  try {
-    await ProductService.deleteImage(editingProduct.value.id, imageId);
-    message.success('Xóa hình ảnh thành công');
-    await handleEdit(editingProduct.value);
-  } catch (error: any) {
-    message.error('Lỗi khi xóa hình ảnh');
-  }
-};
-
 const productImageFileList = computed<UploadFileInfo[]>(() => {
   if (productImageUrl.value) {
     return [{
@@ -644,25 +631,6 @@ const handleVariantImageChange = async ({ fileList }: { fileList: UploadFileInfo
     // For new variant, we'll upload after variant is created
     // For now, create a preview URL
     variantImageUrls.value[sku] = URL.createObjectURL(file);
-  }
-};
-
-const handleImageChange = async ({ fileList }: { fileList: UploadFileInfo[] }) => {
-  selectedImages.value = fileList;
-
-  if (editingProduct.value && fileList.length) {
-    try {
-      const files = fileList
-        .map((f) => f.file)
-        .filter((file): file is File => !!file);
-      if (!files.length) return;
-      await ProductService.uploadImages(editingProduct.value.id, files);
-      message.success('Upload hình ảnh thành công');
-      selectedImages.value = [];
-      await handleEdit(editingProduct.value);
-    } catch (error: any) {
-      message.error('Lỗi khi upload hình ảnh');
-    }
   }
 };
 

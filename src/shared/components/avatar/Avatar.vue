@@ -36,15 +36,7 @@ watch(
 );
 
 // Helpers
-const getInitials = (name?: string | null) => {
-  if (!name) return '';
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '';
-  return parts.map(p => p.charAt(0).toUpperCase()).join('').slice(0, 2);
-};
-
 const displayName = computed(() => props.name ?? 'User');
-const initials = computed(() => getInitials(displayName.value));
 
 const renderIcon = (icon: Component) => () =>
   h(NIcon, null, { default: () => h(icon) });

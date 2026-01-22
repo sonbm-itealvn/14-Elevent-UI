@@ -1,23 +1,20 @@
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue';
-import { 
-  NDataTable, 
-  NButton, 
-  NModal, 
-  NForm, 
-  NFormItem, 
-  NInput, 
-  NSelect, 
+import {
+  NDataTable,
+  NButton,
+  NModal,
+  NForm,
+  NFormItem,
+  NInput,
+  NSelect,
   NSwitch,
   NTag,
   NPopconfirm,
   useMessage,
   NIcon,
-  NGrid,
-  NGridItem,
-  NInputNumber
 } from 'naive-ui';
-import { Plus, Pencil, Trash, Refresh } from '@vicons/tabler';
+import { Plus, Pencil, Trash } from '@vicons/tabler';
 import UserService from '@/core/services/api/user.service';
 import type { User, CreateUserRequest, UpdateUserRequest } from '@/domain/models/user.model';
 
@@ -122,15 +119,6 @@ const columns = [
   },
 ];
 
-// Mock data for UI preview
-const mockUsers: User[] = [
-  { id: 1, email: 'admin@example.com', fullName: 'Nguyễn Văn Admin', phone: '0123456789', active: true, roles: ['ADMIN'] },
-  { id: 2, email: 'user1@example.com', fullName: 'Trần Thị User', phone: '0987654321', active: true, roles: ['USER'] },
-  { id: 3, email: 'user2@example.com', fullName: 'Lê Văn Test', phone: '0912345678', active: false, roles: ['USER'] },
-  { id: 4, email: 'user3@example.com', fullName: 'Phạm Thị Demo', phone: '0923456789', active: true, roles: ['USER'] },
-  { id: 5, email: 'user4@example.com', fullName: 'Hoàng Văn Sample', phone: '0934567890', active: true, roles: ['USER'] },
-];
-
 const loadUsers = async () => {
   try {
     loading.value = true;
@@ -166,6 +154,8 @@ const handleCreate = () => {
 const handleEdit = (user: User) => {
   editingUser.value = user;
   formData.value = {
+    email: user.email,
+    password: '',
     fullName: user.fullName,
     phone: user.phone || '',
     role: user.role,
@@ -181,7 +171,7 @@ const handleSave = async () => {
     
     // Real API call
     if (editingUser.value) {
-      const { password, ...updateData } = formData.value;
+      const { password, email, ...updateData } = formData.value;
       await UserService.updateUser(editingUser.value.id, updateData as UpdateUserRequest);
       message.success('Cập nhật người dùng thành công');
     } else {
@@ -214,15 +204,6 @@ const handleToggleActive = async (userId: number, active: boolean) => {
     await loadUsers();
   } catch (error: any) {
     message.error(error.response?.data?.message || 'Lỗi khi cập nhật trạng thái');
-  }
-};
-
-const handleResetPassword = async (userId: number) => {
-  try {
-    await UserService.resetPassword(userId);
-    message.success('Đặt lại mật khẩu thành công');
-  } catch (error: any) {
-    message.error(error.response?.data?.message || 'Lỗi khi đặt lại mật khẩu');
   }
 };
 
@@ -268,8 +249,8 @@ onMounted(() => {
         <NFormItem label="Số điện thoại" path="phone">
           <NInput v-model:value="formData.phone" placeholder="Nhập số điện thoại" />
         </NFormItem>
-        <NFormItem label="Vai trò" path="roles">
-          <NSelect v-model:value="formData.roles" multiple :options="roleOptions" placeholder="Chọn vai trò" />
+        <NFormItem label="Vai trò" path="role">
+          <NSelect v-model:value="formData.role" :options="roleOptions" placeholder="Chọn vai trò" />
         </NFormItem>
       </NForm>
       <template #action>

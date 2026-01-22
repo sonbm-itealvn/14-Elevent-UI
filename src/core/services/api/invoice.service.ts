@@ -6,8 +6,6 @@ import type {
   CreateInvoiceRequest,
   UpdateInvoiceRequest 
 } from "@/domain/models/invoice.model";
-import type { BasePaginationResponse } from "@/core/models/base-pagination-response.model";
-
 class InvoiceService {
   private httpService: HttpService;
 

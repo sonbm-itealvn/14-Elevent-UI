@@ -23,10 +23,10 @@ import { Plus, Pencil, Trash, Eye, Calendar } from '@vicons/tabler';
 import VoucherService from '@/core/services/api/voucher.service';
 import type {
   Voucher,
-  CreateVoucherRequest,
-  UpdateVoucherRequest,
   DiscountType,
   VoucherUsageStatsResponse,
+  CreateVoucherRequest,
+  UpdateVoucherRequest,
 } from '@/domain/models/voucher.model';
 
 const message = useMessage();
@@ -42,11 +42,16 @@ const pagination = ref({
 });
 
 // Filters
-const filters = ref({
+const filters = ref<{
+  code: string;
+  active?: boolean;
+  startDateFrom: number | null;
+  startDateTo: number | null;
+}>({
   code: '',
-  active: undefined as boolean | undefined,
-  startDateFrom: null as string | null,
-  startDateTo: null as string | null,
+  active: undefined,
+  startDateFrom: null,
+  startDateTo: null,
 });
 
 const showModal = ref(false);
@@ -58,7 +63,20 @@ const viewingVoucher = ref<Voucher | null>(null);
 const usageStats = ref<VoucherUsageStatsResponse | null>(null);
 const formRef = ref();
 
-const formData = ref<CreateVoucherRequest & { startDate: string | number | null; endDate: string | number | null }>({
+type VoucherForm = {
+  code: string;
+  discountType: DiscountType;
+  discountValue: number;
+  minOrder?: number;
+  maxDiscount?: number;
+  startDate: number | null;
+  endDate: number | null;
+  quantity: number;
+  usageLimitPerUser?: number;
+  active: boolean;
+};
+
+const formData = ref<VoucherForm>({
   code: '',
   discountType: 'PERCENT',
   discountValue: 0,
@@ -231,10 +249,10 @@ const loadVouchers = async () => {
       params.active = filters.value.active;
     }
     if (filters.value.startDateFrom) {
-      params.startDateFrom = filters.value.startDateFrom;
+      params.startDateFrom = new Date(filters.value.startDateFrom).toISOString().slice(0, 19);
     }
     if (filters.value.startDateTo) {
-      params.startDateTo = filters.value.startDateTo;
+      params.startDateTo = new Date(filters.value.startDateTo).toISOString().slice(0, 19);
     }
 
     const response = await VoucherService.getVouchers(params);
@@ -318,29 +336,29 @@ const handleSave = async () => {
   try {
     await formRef.value?.validate();
 
-    // Convert dates to ISO format
-    const submitData: any = { ...formData.value };
-    if (submitData.startDate) {
-      submitData.startDate = new Date(submitData.startDate).toISOString().slice(0, 19);
-    } else {
-      message.error('Vui lòng chọn ngày bắt đầu');
-      return;
-    }
-    if (submitData.endDate) {
-      submitData.endDate = new Date(submitData.endDate).toISOString().slice(0, 19);
-    } else {
-      message.error('Vui lòng chọn ngày kết thúc');
+    if (!formData.value.startDate || !formData.value.endDate) {
+      message.error('Vui lòng chọn ngày bắt đầu và kết thúc');
       return;
     }
 
+    const submitData: CreateVoucherRequest | UpdateVoucherRequest = {
+      code: formData.value.code,
+      discountType: formData.value.discountType,
+      discountValue: formData.value.discountValue,
+      minOrder: formData.value.minOrder,
+      maxDiscount: formData.value.maxDiscount,
+      startDate: new Date(formData.value.startDate).toISOString().slice(0, 19),
+      endDate: new Date(formData.value.endDate).toISOString().slice(0, 19),
+      quantity: formData.value.quantity,
+      usageLimitPerUser: formData.value.usageLimitPerUser,
+      active: formData.value.active,
+    };
+
     if (editingVoucher.value) {
-      await VoucherService.updateVoucher(
-        editingVoucher.value.id,
-        submitData as UpdateVoucherRequest
-      );
+      await VoucherService.updateVoucher(editingVoucher.value.id, submitData as UpdateVoucherRequest);
       message.success('Cập nhật voucher thành công');
     } else {
-      await VoucherService.createVoucher(submitData);
+      await VoucherService.createVoucher(submitData as CreateVoucherRequest);
       message.success('Tạo voucher thành công');
     }
     showModal.value = false;
@@ -378,13 +396,6 @@ const handleToggleActive = async (voucherId: number, active: boolean) => {
 
 const handleFilter = () => {
   pagination.value.page = 1;
-  // Convert date to ISO format
-  if (filters.value.startDateFrom) {
-    filters.value.startDateFrom = new Date(filters.value.startDateFrom).toISOString().slice(0, 19);
-  }
-  if (filters.value.startDateTo) {
-    filters.value.startDateTo = new Date(filters.value.startDateTo).toISOString().slice(0, 19);
-  }
   loadVouchers();
 };
 
@@ -455,13 +466,13 @@ onMounted(() => {
           @keyup.enter="handleFilter"
         />
         <NSelect
-          v-model:value="filters.active"
+          v-model:value="(filters.active as any)"
           placeholder="Trạng thái"
           clearable
           :options="[
             { label: 'Đang hoạt động', value: true },
             { label: 'Đã tắt', value: false },
-          ]"
+          ] as any"
         />
         <NDatePicker
           v-model:value="filters.startDateFrom"

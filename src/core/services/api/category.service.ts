@@ -6,8 +6,6 @@ import type {
   UpdateCategoryRequest,
   SlugCheckResponse 
 } from "@/domain/models/category.model";
-import type { BaseResponse } from "@/core/models/base-response.model";
-
 class CategoryService {
   private httpService: HttpService;
 

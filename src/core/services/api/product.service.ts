@@ -11,9 +11,6 @@ import type {
   ToggleProductStatusRequest,
   ProductSlugCheckResponse 
 } from "@/domain/models/product.model";
-import type { BaseResponse } from "@/core/models/base-response.model";
-import type { BasePaginationResponse } from "@/core/models/base-pagination-response.model";
-
 class ProductService {
   private httpService: HttpService;
 

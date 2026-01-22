@@ -34,7 +34,7 @@ import useAuthStore from "@/ui/stores/auth.store";
 import useCartStore from "@/ui/stores/cart.store";
 import JwtService from "@/core/services/storages/jwt.service";
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
   const cartStore = useCartStore();
   

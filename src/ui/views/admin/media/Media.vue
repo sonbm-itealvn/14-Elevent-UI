@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue';
-import { 
-  NDataTable, 
-  NButton, 
-  NModal, 
+import {
+  NDataTable,
+  NButton,
+  NModal,
   NUpload,
   NImage,
   NPopconfirm,
@@ -11,14 +11,11 @@ import {
   NIcon,
   NTag,
   NInput,
-  NSelect,
-  NGrid,
-  NGridItem,
-  NCard
 } from 'naive-ui';
 import { Plus, Trash, Photo as ImageIcon } from '@vicons/tabler';
 import MediaService from '@/core/services/api/media.service';
-import type { Media, MediaType } from '@/domain/models/media.model';
+import type { Media } from '@/domain/models/media.model';
+import { MediaType } from '@/domain/models/media.model';
 
 const message = useMessage();
 
@@ -37,19 +34,22 @@ const uploadFolder = ref('');
 
 const typeOptions = [
   { label: 'Tất cả', value: '' },
-  { label: 'Hình ảnh', value: 'IMAGE' },
-  { label: 'Video', value: 'VIDEO' },
-  { label: 'Tài liệu', value: 'DOCUMENT' },
-  { label: 'Khác', value: 'OTHER' },
+  { label: 'Hình ảnh', value: MediaType.IMAGE },
+  { label: 'Video', value: MediaType.VIDEO },
+  { label: 'Tài liệu', value: MediaType.DOCUMENT },
+  { label: 'Khác', value: MediaType.OTHER },
 ];
 
-const getTypeTagType = (type: string) => {
-  const typeMap: Record<string, string> = {
-    IMAGE: 'success',
-    VIDEO: 'info',
-    DOCUMENT: 'warning',
-    OTHER: 'default',
-  };
+const getTypeTagType = (
+  type: MediaType
+): 'success' | 'info' | 'warning' | 'default' | 'error' | 'primary' => {
+  const typeMap: Record<MediaType, 'success' | 'info' | 'warning' | 'default'> =
+    {
+      [MediaType.IMAGE]: 'success',
+      [MediaType.VIDEO]: 'info',
+      [MediaType.DOCUMENT]: 'warning',
+      [MediaType.OTHER]: 'default',
+    };
   return typeMap[type] || 'default';
 };
 
@@ -140,44 +140,6 @@ const columns = [
   },
 ];
 
-// Mock data for UI preview
-const mockMedia: Media[] = [
-  {
-    id: 1,
-    name: 'product-image-1.jpg',
-    url: 'https://via.placeholder.com/300x300',
-    type: 'IMAGE',
-    size: 102400,
-    mimeType: 'image/jpeg',
-    folder: 'products',
-    width: 1920,
-    height: 1080,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    name: 'banner-home.jpg',
-    url: 'https://via.placeholder.com/800x400',
-    type: 'IMAGE',
-    size: 204800,
-    mimeType: 'image/jpeg',
-    folder: 'banners',
-    width: 1920,
-    height: 1080,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: 3,
-    name: 'video-intro.mp4',
-    url: 'https://via.placeholder.com/300x300',
-    type: 'VIDEO',
-    size: 5242880,
-    mimeType: 'video/mp4',
-    folder: 'videos',
-    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-  },
-];
-
 const loadMedia = async () => {
   try {
     loading.value = true;
@@ -196,18 +158,21 @@ const loadMedia = async () => {
   }
 };
 
-const handleUpload = async (fileList: any[]) => {
-  try {
-    for (const file of fileList) {
-      await MediaService.uploadImage(file.file, uploadFolder.value || undefined);
-    }
-    message.success('Upload thành công');
-    showUploadModal.value = false;
-    uploadFolder.value = '';
-    await loadMedia();
-  } catch (error: any) {
-    message.error(error.response?.data?.message || 'Lỗi khi upload file');
-  }
+// onFinish của NUpload nhận { file, event }
+const handleUpload = (options: any) => {
+  const fileInfo = options?.file;
+  if (!fileInfo?.file) return;
+  const file: File = fileInfo.file as File;
+  MediaService.uploadImage(file, uploadFolder.value || undefined)
+    .then(() => {
+      message.success('Upload thành công');
+      showUploadModal.value = false;
+      uploadFolder.value = '';
+      loadMedia();
+    })
+    .catch((error: any) => {
+      message.error(error.response?.data?.message || 'Lỗi khi upload file');
+    });
 };
 
 const handleDelete = async (mediaId: number) => {

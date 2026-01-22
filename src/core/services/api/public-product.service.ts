@@ -1,6 +1,4 @@
 import HttpService from "./http.service";
-import type { Product } from "@/domain/models/product.model";
-import type { BasePaginationResponse } from "@/core/models/base-pagination-response.model";
 
 export interface PublicProduct {
   id: number;

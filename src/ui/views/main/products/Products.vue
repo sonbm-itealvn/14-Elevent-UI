@@ -6,10 +6,8 @@ import type { PublicProduct } from '@/core/services/api/public-product.service';
 import CategoryService from '@/core/services/api/category.service';
 import type { CategoryTreeResponse } from '@/domain/models/category.model';
 import { useMessage } from 'naive-ui';
-import { useRoute } from 'vue-router';
 
 const message = useMessage();
-const route = useRoute();
 
 const allProducts = ref<PublicProduct[]>([]);
 const categories = ref<CategoryTreeResponse[]>([]);

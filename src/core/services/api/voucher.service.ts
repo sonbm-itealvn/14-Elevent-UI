@@ -7,7 +7,6 @@ import type {
   ToggleVoucherActiveRequest,
   VoucherUsageStatsResponse,
 } from "@/domain/models/voucher.model";
-import type { BasePaginationResponse } from "@/core/models/base-pagination-response.model";
 
 class VoucherService {
   private httpService: HttpService;

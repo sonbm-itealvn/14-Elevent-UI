@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NTag, NImage, NImageGroup, NButton, NBadge, useMessage, NBreadcrumb, NBreadcrumbItem } from 'naive-ui';
+import { NTag, NButton, NBadge, useMessage, NBreadcrumb, NBreadcrumbItem } from 'naive-ui';
 import PublicProductService, { type ProductDetail } from '@/core/services/api/public-product.service';
 import useCartStore from '@/ui/stores/cart.store';
 import { ShoppingCart } from '@vicons/tabler';
@@ -34,21 +34,6 @@ const displayedPrice = computed(() => {
   if (selectedVariant.value) return selectedVariant.value.price;
   if (priceRange.value) return priceRange.value.min === priceRange.value.max ? priceRange.value.min : null;
   return null;
-});
-
-const variantAttributes = computed(() => {
-  const variants = product.value?.variants || [];
-  if (!variants.length) return {};
-  const attrMap: Record<string, Set<string>> = {};
-  variants.forEach((v) => {
-    if (v.attributes) {
-      Object.entries(v.attributes).forEach(([k, val]) => {
-        if (!attrMap[k]) attrMap[k] = new Set();
-        attrMap[k].add(String(val));
-      });
-    }
-  });
-  return Object.fromEntries(Object.entries(attrMap).map(([k, set]) => [k, Array.from(set)]));
 });
 
 const setMainImage = (url?: string, source: 'product' | 'variant' | null = null) => {

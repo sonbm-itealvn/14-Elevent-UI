@@ -339,7 +339,7 @@ const submitApply = async () => {
             Tham gia đội ngũ để lan tỏa hương vị Nhật Bản chính gốc. Ứng tuyển ngay!
           </p>
           <button
-            class="px-5 py-2 bg-black text-white font-semibold uppercase text-sm hover:bg-neutral-800 transition-colors duration-200"
+            class="px-5 py-2 bg-black text-white font-semibold uppercase text-sm hover:bg-neutral-800 transition-colors duration-200" style="cursor: pointer;"
             @click="openApplyForm"
           >
             Ứng tuyển

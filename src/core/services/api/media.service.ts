@@ -4,8 +4,6 @@ import type {
   MediaPageResponse,
   UploadImageResponse 
 } from "@/domain/models/media.model";
-import type { BasePaginationResponse } from "@/core/models/base-pagination-response.model";
-
 class MediaService {
   private httpService: HttpService;
 

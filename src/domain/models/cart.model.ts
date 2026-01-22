@@ -56,3 +56,27 @@ export interface CheckoutPreviewResponse {
   appliedVoucher: VoucherInfo | null; // Thông tin voucher đã áp dụng
 }
 
+// Checkout Confirm Request/Response
+export interface CheckoutConfirmRequest {
+  buyerEmail?: string; // Bắt buộc cho guest, optional cho user
+  receiverName: string;
+  receiverPhone: string;
+  shippingAddress: string;
+  shippingWard?: string;
+  shippingDistrict?: string;
+  shippingCity: string;
+  paymentMethod: 'COD' | 'BANKING' | 'VNPAY' | 'MOMO';
+  expectedTotal?: number;
+  note?: string;
+}
+
+export interface CheckoutConfirmResponse {
+  orderId: number;
+  orderCode: string;
+  status: string;
+  paymentStatus: string;
+  paymentMethod: string;
+  totalAmount: number;
+  paymentUrl: string | null; // null cho COD
+}
+

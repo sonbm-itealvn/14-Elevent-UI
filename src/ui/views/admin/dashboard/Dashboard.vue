@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { NGrid, NGridItem, NStatistic, NCard, NDataTable } from 'naive-ui';
-import UserService from '@/core/services/api/user.service';
-import OrderService from '@/core/services/api/order.service';
-import ProductService from '@/core/services/api/product.service';
-import InvoiceService from '@/core/services/api/invoice.service';
 
 const stats = ref({
   totalUsers: 0,

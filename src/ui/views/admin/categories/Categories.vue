@@ -1,20 +1,18 @@
 <script setup lang="ts">
 import { ref, onMounted, h, computed } from 'vue';
-import { 
-  NDataTable, 
-  NButton, 
-  NModal, 
-  NForm, 
-  NFormItem, 
-  NInput, 
-  NSwitch,
+import {
+  NDataTable,
+  NButton,
+  NModal,
+  NForm,
+  NFormItem,
+  NInput,
   NPopconfirm,
   useMessage,
   NIcon,
   NSelect,
   NTreeSelect,
   NTree,
-  NInputNumber
 } from 'naive-ui';
 import { Plus, Pencil, Trash } from '@vicons/tabler';
 import CategoryService from '@/core/services/api/category.service';
@@ -45,9 +43,7 @@ const formRef = ref();
 const formData = ref<CreateCategoryRequest>({
   name: '',
   slug: '',
-  description: '',
   parentId: undefined,
-  active: true,
 });
 
 const columns = [
@@ -112,15 +108,6 @@ const buildParentPath = (cat: Category, map: Map<number, Category>): string => {
   return path.join(' / ');
 };
 
-// Mock data for UI preview
-const mockCategories: Category[] = [
-  { id: 1, name: 'Điện tử', slug: 'dien-tu', description: 'Sản phẩm điện tử', active: true },
-  { id: 2, name: 'Quần áo', slug: 'quan-ao', description: 'Thời trang quần áo', active: true },
-  { id: 3, name: 'Đồ ăn', slug: 'do-an', description: 'Thực phẩm và đồ ăn', active: true },
-  { id: 4, name: 'Điện thoại', slug: 'dien-thoai', description: 'Điện thoại di động', parentId: 1, active: true },
-  { id: 5, name: 'Laptop', slug: 'laptop', description: 'Máy tính xách tay', parentId: 1, active: true },
-];
-
 const loadCategories = async () => {
   try {
     loading.value = true;
@@ -164,9 +151,7 @@ const handleCreate = () => {
   formData.value = {
     name: '',
     slug: '',
-    description: '',
     parentId: undefined,
-    active: true,
   };
   modalTitle.value = 'Tạo danh mục mới';
   showModal.value = true;
@@ -177,9 +162,7 @@ const handleEdit = (category: Category) => {
   formData.value = {
     name: category.name,
     slug: category.slug,
-    description: category.description || '',
     parentId: category.parentId,
-    active: category.active,
   };
   modalTitle.value = 'Chỉnh sửa danh mục';
   showModal.value = true;
@@ -308,7 +291,7 @@ const handleTreeSelect = (keys: (string | number)[]) => {
           />
           <NSelect
             v-model:value="selectedParentFilter"
-            :options="parentFilterOptions"
+            :options="parentFilterOptions as any"
             placeholder="Lọc theo danh mục cha"
             class="md:w-1/3"
             clearable
@@ -339,9 +322,6 @@ const handleTreeSelect = (keys: (string | number)[]) => {
         <NFormItem label="Slug" path="slug" :rule="{ required: true, message: 'Vui lòng nhập slug' }">
           <NInput v-model:value="formData.slug" placeholder="Nhập slug" />
         </NFormItem>
-        <NFormItem label="Mô tả" path="description">
-          <NInput v-model:value="formData.description" type="textarea" placeholder="Nhập mô tả" :rows="3" />
-        </NFormItem>
         <NFormItem label="Danh mục cha" path="parentId">
           <NTreeSelect
             v-model:value="formData.parentId"
@@ -350,9 +330,6 @@ const handleTreeSelect = (keys: (string | number)[]) => {
             clearable
             :default-expand-all="true"
           />
-        </NFormItem>
-        <NFormItem label="Trạng thái" path="active">
-          <NSwitch v-model:value="formData.active" />
         </NFormItem>
       </NForm>
       <template #action>

@@ -17,15 +17,15 @@ axiosInstance.interceptors.request.use(
     const accessToken = JwtService.getAccessToken();
 
     // Tìm header X-Cart-Token theo cách không phân biệt hoa thường
-    const headers = config.headers || {};
-    const headerKeys =
-      typeof headers.keys === "function"
-        ? Array.from(headers.keys())
+    const headers = (config.headers || {}) as Record<string, any>;
+    const headerKeys: string[] =
+      typeof (headers as any).keys === "function"
+        ? Array.from((headers as any).keys() as string[])
         : Object.keys(headers);
 
     // Flag cho phép gửi Authorization cùng X-Cart-Token (dùng cho merge)
     const allowAuthWithCartToken = headerKeys.some(
-      (key) => key?.toLowerCase() === "x-allow-auth-with-cart-token"
+      (key) => key.toLowerCase() === "x-allow-auth-with-cart-token"
     );
 
     // Nếu có flag, loại bỏ flag khỏi headers trước khi gửi
@@ -39,13 +39,13 @@ axiosInstance.interceptors.request.use(
     }
 
     const hasCartToken = headerKeys.some(
-      (key) => key?.toLowerCase() === "x-cart-token"
+      (key) => key.toLowerCase() === "x-cart-token"
     );
 
     // Guest cart: không gửi Authorization nếu có X-Cart-Token
     if (hasCartToken && !allowAuthWithCartToken) {
-      if (typeof headers.delete === "function") {
-        headers.delete("Authorization");
+      if (typeof (headers as any).delete === "function") {
+        (headers as any).delete("Authorization");
       } else {
         delete (headers as any).Authorization;
         delete (headers as any).authorization;
@@ -55,8 +55,8 @@ axiosInstance.interceptors.request.use(
 
     // User cart: thêm Authorization nếu có accessToken
     if (accessToken) {
-      if (typeof headers.set === "function") {
-        headers.set("Authorization", `Bearer ${accessToken}`);
+      if (typeof (headers as any).set === "function") {
+        (headers as any).set("Authorization", `Bearer ${accessToken}`);
       } else {
         (headers as any).Authorization = `Bearer ${accessToken}`;
       }
@@ -76,7 +76,6 @@ axiosInstance.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const accessToken = JwtService.getAccessToken();
         const refreshToken = JwtService.getRefreshToken();
         if (!refreshToken) {
           JwtService.clearAllTokens();
