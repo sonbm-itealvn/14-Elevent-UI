@@ -198,7 +198,7 @@ const submitApply = async () => {
     </div>
   </section>
 
-  <section class="bg-[#f7f7f7] py-14 px-4 md:px-8 lg:px-12">
+  <section v-if="bestSellers.length > 0 || loading" class="bg-[#f7f7f7] py-14 px-4 md:px-8 lg:px-12">
     <div class="max-w-6xl mx-auto text-center mb-10">
       <div class="flex items-center justify-center gap-3 text-sm uppercase tracking-[0.2em] text-red-600 font-semibold mb-3">
         <span class="h-[2px] w-12 bg-red-600"></span>
@@ -236,9 +236,6 @@ const submitApply = async () => {
           <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
         </div>
       </div>
-    </div>
-    <div v-else class="max-w-6xl mx-auto text-center py-10">
-      <p class="text-neutral-500">Không có sản phẩm bán chạy</p>
     </div>
   </section>
 

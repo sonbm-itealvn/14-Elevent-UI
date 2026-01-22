@@ -97,10 +97,6 @@ const getStatusTagType = (status: string) => {
   return statusMap[status] || 'default';
 };
 
-const getStatusLabel = (status: string) => {
-  return orderStatusSelectOptions.find(o => o.value === status)?.label || status;
-};
-
 const getPaymentStatusLabel = (status: string) => {
   return paymentStatusOptions.find(o => o.value === status)?.label || status;
 };

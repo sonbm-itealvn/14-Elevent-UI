@@ -8,7 +8,6 @@ import {
   NDataTable,
   NTag,
   useMessage,
-  NDivider,
   NSpin,
   NButton,
   NIcon,
@@ -16,7 +15,7 @@ import {
 } from 'naive-ui';
 import { Download } from '@vicons/tabler';
 import OrderService from '@/core/services/api/order.service';
-import type { DashboardStatsResponse, OrderStatus } from '@/domain/models/order.model';
+import type { DashboardStatsResponse } from '@/domain/models/order.model';
 
 const message = useMessage();
 const loading = ref(false);

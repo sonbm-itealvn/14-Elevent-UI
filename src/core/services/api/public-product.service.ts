@@ -6,6 +6,8 @@ export interface PublicProduct {
   slug: string;
   thumbnail?: string;
   minPrice?: number;
+  isOnSale?: boolean;
+  salePercentage?: number;
   brand?: string;
   origin?: string;
 }

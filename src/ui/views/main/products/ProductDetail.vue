@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NTag, NButton, NBadge, useMessage, NBreadcrumb, NBreadcrumbItem } from 'naive-ui';
-import PublicProductService, { type ProductDetail } from '@/core/services/api/public-product.service';
+import PublicProductService, { type ProductDetail, type PublicProduct } from '@/core/services/api/public-product.service';
 import useCartStore from '@/ui/stores/cart.store';
 import { ShoppingCart } from '@vicons/tabler';
 
@@ -17,6 +17,8 @@ const selectedVariantId = ref<number | null>(null);
 const quantity = ref(1);
 const mainImage = ref<string | null>(null);
 const selectedImageSource = ref<'product' | 'variant' | null>(null); // Track which image source is selected
+const relatedProducts = ref<PublicProduct[]>([]);
+const loadingRelated = ref(false);
 
 const priceRange = computed(() => {
   if (!product.value?.variants || product.value.variants.length === 0) return null;
@@ -65,6 +67,10 @@ const loadProduct = async (slug: string) => {
         setMainImage(selectedVariant.imageUrl, 'variant');
       }
     }
+    // Load related products after product is loaded
+    if (data.id) {
+      loadRelatedProducts(data.id);
+    }
   } catch (error: any) {
     console.error('Error loading product detail', error);
     message.error(error?.response?.data?.message || 'Không thể tải thông tin sản phẩm');
@@ -72,6 +78,24 @@ const loadProduct = async (slug: string) => {
   } finally {
     loading.value = false;
   }
+};
+
+const loadRelatedProducts = async (productId: number) => {
+  try {
+    loadingRelated.value = true;
+    const products = await PublicProductService.getRelatedProducts(productId);
+    relatedProducts.value = products;
+  } catch (error: any) {
+    console.error('Error loading related products', error);
+    // Không hiển thị error message vì đây là phần phụ
+  } finally {
+    loadingRelated.value = false;
+  }
+};
+
+const formatPrice = (price?: number) => {
+  if (!price) return '0 đ';
+  return new Intl.NumberFormat('vi-VN').format(price) + ' đ';
 };
 
 const handleSelectVariant = (id: number) => {
@@ -357,6 +381,59 @@ watch(
 
   <section v-else class="py-12 text-center text-neutral-500">
     Đang tải thông tin sản phẩm...
+  </section>
+
+  <!-- Related Products Section -->
+  <section v-if="relatedProducts.length > 0 || loadingRelated" class="bg-[#f7f7f7] py-14 px-4 md:px-8 lg:px-12">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-10">
+        <div class="flex items-center justify-center gap-3 text-sm uppercase tracking-[0.2em] text-red-600 font-semibold mb-3">
+          <span class="h-[2px] w-12 bg-red-600"></span>
+          <span>Sản phẩm liên quan</span>
+          <span class="h-[2px] w-12 bg-red-600"></span>
+        </div>
+        <p class="text-neutral-500 text-sm">関連商品</p>
+      </div>
+
+      <div v-if="loadingRelated" class="text-center py-10">
+        <p class="text-neutral-500">Đang tải...</p>
+      </div>
+      <div v-else-if="relatedProducts.length > 0" class="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+        <router-link
+          v-for="item in relatedProducts"
+          :key="item.id"
+          :to="{ name: 'ProductDetail', params: { slug: item.slug } }"
+          class="bg-white shadow-md hover:shadow-lg transition-shadow duration-200 border border-neutral-200 flex flex-col rounded-md overflow-hidden group"
+        >
+          <div class="relative">
+            <img
+              :src="item.thumbnail || 'https://via.placeholder.com/400'"
+              :alt="item.name"
+              class="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-200"
+            />
+            <div v-if="item.isOnSale && item.salePercentage" class="absolute top-3 left-3 bg-red-600 text-white px-2 py-1 text-xs font-semibold rounded">
+              -{{ item.salePercentage }}%
+            </div>
+          </div>
+
+          <div class="p-5 flex flex-col gap-3 flex-1">
+            <div>
+              <h3 class="text-lg font-semibold text-neutral-900 uppercase tracking-wide line-clamp-2 group-hover:text-red-600 transition-colors">
+                {{ item.name }}
+              </h3>
+              <div class="flex items-center gap-2 mt-1">
+                <p v-if="item.brand" class="text-sm text-neutral-500">{{ item.brand }}</p>
+                <span v-if="item.brand && item.origin" class="text-neutral-400">•</span>
+                <p v-if="item.origin" class="text-sm text-neutral-500">{{ item.origin }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="px-5 pb-4 pt-0 flex items-center justify-between border-t border-neutral-100">
+            <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+          </div>
+        </router-link>
+      </div>
+    </div>
   </section>
 </template>
 

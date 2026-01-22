@@ -11,7 +11,6 @@ import useAuthStore from '@/ui/stores/auth.store';
 import useCartStore from '@/ui/stores/cart.store';
 import HeaderMenu from './HeaderMenu.vue';
 import { isDesktop } from '@/shared/composable/useWindowResize';
-import Language from '../language/Language.vue';
 import type { Header } from '@/core/models/header.model';
 
 const themeStore = useThemeStore();
@@ -121,7 +120,6 @@ const dropdownOptions = [
             </template>
           </Button>
         </n-badge>
-        <Language/>
         <Button
           class="h-11 w-11 flex items-center justify-center rounded-full transition-colors duration-150"
           :class="isLight
