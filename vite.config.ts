@@ -10,7 +10,20 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
-  plugins: [vue(),
-  tailwindcss()
+  plugins: [
+    vue({
+      script: {
+        defineModel: true,
+        propsDestructure: true
+      }
+    }),
+    tailwindcss()
   ],
+  build: {
+    target: 'esnext',
+    minify: 'esbuild',
+  },
+  optimizeDeps: {
+    include: ['vue', 'vue-router', 'pinia']
+  }
 })
