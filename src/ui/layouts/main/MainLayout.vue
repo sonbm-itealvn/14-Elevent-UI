@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { NLayout, NLayoutContent } from 'naive-ui';
 import Header from '@/shared/components/header/Header.vue';
 import Footer from '@/shared/components/footer/Footer.vue';
 import headerConstant from '@/shared/constants/header.constant';
