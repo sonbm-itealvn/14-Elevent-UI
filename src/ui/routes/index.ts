@@ -10,6 +10,12 @@ const router = createRouter({
         MainRoutes,
         AdminRoutes,
         {
+            path: "/oauth2/redirect",
+            name: "OAuthRedirect",
+            redirect: (to) => ({ path: "/", query: to.query }),
+            meta: { requiresAuth: false },
+        },
+        {
             path: "/forgot-password",
             name: "ForgotPasswordDirect",
             redirect: (to) => ({ path: "/auth/forgot-password", query: to.query }),

@@ -192,6 +192,35 @@
       </div>
     </n-spin>
 
+    <!-- Gợi ý đăng ký nhận voucher cho khách vãng lai -->
+    <NModal
+      v-model:show="showSignupSuggestionModal"
+      title="Nhận voucher giảm giá đến 20%?"
+      preset="dialog"
+      style="max-width: 520px"
+    >
+      <div class="space-y-4">
+        <p class="text-sm text-neutral-700">
+          Tạo tài khoản 14Elevent để lưu lịch sử mua hàng, theo dõi đơn dễ dàng và
+          nhận ưu đãi độc quyền lên đến
+          <span class="font-semibold text-red-600">20% cho các đơn tiếp theo</span>.
+        </p>
+        <ul class="text-sm text-neutral-700 list-disc pl-5 space-y-1">
+          <li>Lưu địa chỉ giao hàng cho những lần mua sau.</li>
+          <li>Nhận thông báo sớm về các chương trình khuyến mãi.</li>
+          <li>Quản lý đơn hàng và trạng thái thanh toán thuận tiện.</li>
+        </ul>
+      </div>
+      <template #action>
+        <NButton quaternary @click="handleSignupLater">
+          Để sau, thanh toán luôn
+        </NButton>
+        <NButton type="primary" @click="handleGoRegister">
+          Đăng ký ngay
+        </NButton>
+      </template>
+    </NModal>
+
     <!-- Checkout Modal -->
     <NModal
       v-model:show="showCheckoutModal"
@@ -453,6 +482,7 @@ const goToProducts = () => {
 };
 
 const showCheckoutModal = ref(false);
+const showSignupSuggestionModal = ref(false);
 const checkoutForm = ref({
   buyerEmail: "",
   receiverName: "",
@@ -465,8 +495,8 @@ const checkoutForm = ref({
 });
 const submittingCheckout = ref(false);
 
-const goToCheckout = () => {
-  // Reset form
+const openCheckoutModal = () => {
+  // Reset form với thông tin từ user (nếu có)
   checkoutForm.value = {
     buyerEmail: authStore.user?.email || "",
     receiverName: authStore.user?.fullName || "",
@@ -478,6 +508,25 @@ const goToCheckout = () => {
     note: "",
   };
   showCheckoutModal.value = true;
+};
+
+const goToCheckout = () => {
+  // Nếu là khách vãng lai, gợi ý đăng ký nhận voucher trước
+  if (!authStore.isAuthenticated) {
+    showSignupSuggestionModal.value = true;
+    return;
+  }
+  openCheckoutModal();
+};
+
+const handleSignupLater = () => {
+  showSignupSuggestionModal.value = false;
+  openCheckoutModal();
+};
+
+const handleGoRegister = () => {
+  showSignupSuggestionModal.value = false;
+  router.push({ name: "Register", query: { redirect: router.currentRoute.value.fullPath } });
 };
 
 const closeCheckoutModal = () => {
