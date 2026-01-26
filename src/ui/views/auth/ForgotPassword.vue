@@ -10,10 +10,26 @@ const isSubmitting = ref(false);
 const successMessage = ref('');
 const errorMessage = ref('');
 
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
 const handleSubmit = async (e: Event) => {
   e.preventDefault();
   successMessage.value = '';
   errorMessage.value = '';
+  
+  // Validate email
+  if (!formData.value.email.trim()) {
+    errorMessage.value = 'Vui lòng nhập email.';
+    return;
+  }
+  if (!validateEmail(formData.value.email)) {
+    errorMessage.value = 'Email không hợp lệ. Vui lòng nhập đúng định dạng email.';
+    return;
+  }
+  
   isSubmitting.value = true;
   try {
     const message = await AuthService.forgotPassword({ email: formData.value.email });

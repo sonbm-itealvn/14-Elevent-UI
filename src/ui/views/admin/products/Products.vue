@@ -24,13 +24,15 @@ import {
 import { Plus, Pencil, Trash, Photo as ImageIcon, Eye } from '@vicons/tabler';
 import ProductService from '@/core/services/api/product.service';
 import CategoryService from '@/core/services/api/category.service';
-import type { Product, CreateProductRequest, UpdateProductRequest } from '@/domain/models/product.model';
+import type { Product, CreateProductRequest, UpdateProductRequest, ProductVariant, UpdateVariantRequest } from '@/domain/models/product.model';
 import type { Category } from '@/domain/models/category.model';
 
 const message = useMessage();
 
 const loading = ref(false);
 const saving = ref(false);
+const savingSale = ref(false);
+const addingVariant = ref(false);
 const products = ref<Product[]>([]);
 const categories = ref<Category[]>([]);
 const pagination = ref({
@@ -43,10 +45,18 @@ const pagination = ref({
 
 const showModal = ref(false);
 const showViewModal = ref(false);
+const showSaleModal = ref(false);
 const modalTitle = ref('Tạo sản phẩm mới');
 const editingProduct = ref<Product | null>(null);
 const viewingProduct = ref<Product | null>(null);
 const formRef = ref();
+
+const saleForm = ref({
+  productId: 0,
+  name: '',
+  isOnSale: false,
+  salePercentage: 0,
+});
 
 // formData mở rộng thêm field active chỉ dùng cho UI, backend nhận status
 const formData = ref<CreateProductRequest & { active: boolean }>({
@@ -72,6 +82,19 @@ const variantForm = ref({
 const variantAttributes = ref<{ key: string; value: string }[]>([
   { key: '', value: '' },
 ]);
+
+// State cho chỉnh sửa biến thể
+const showEditVariantModal = ref(false);
+const editingVariant = ref<ProductVariant | null>(null);
+const editVariantForm = ref({
+  sku: '',
+  name: '',
+  price: 0,
+  stock: 0,
+});
+const editVariantAttributes = ref<{ key: string; value: string }[]>([]);
+const editVariantImageUrl = ref<string | null>(null);
+const editVariantImageFile = ref<File | null>(null);
 
 const selectedImages = ref<UploadFileInfo[]>([]);
 const productImageUrl = ref<string | null>(null);
@@ -101,11 +124,6 @@ const removeAttributeRow = (index: number) => {
 
 const columns = [
   {
-    title: 'ID',
-    key: 'id',
-    width: 80,
-  },
-  {
     title: 'Tên sản phẩm',
     key: 'name',
     width: 200,
@@ -127,6 +145,27 @@ const columns = [
     width: 120,
     render: (row: Product) =>
       new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.minPrice ?? 0),
+  },
+  {
+    title: 'Sale',
+    key: 'sale',
+    width: 150,
+    render: (row: Product) => {
+      const label = row.isOnSale
+        ? `Đang sale${typeof row.salePercentage === 'number' ? ` (${row.salePercentage}%)` : ''}`
+        : 'Không sale';
+
+      return h(
+        NTag,
+        {
+          type: row.isOnSale ? 'success' : 'default',
+          size: 'small',
+          style: 'cursor: pointer',
+          onClick: () => handleOpenSaleModal(row),
+        },
+        { default: () => label },
+      );
+    },
   },
   {
     title: 'Trạng thái',
@@ -294,6 +333,42 @@ const handleView = (product: Product) => {
     });
 };
 
+const handleOpenSaleModal = (product: Product) => {
+  saleForm.value = {
+    productId: product.id,
+    name: product.name,
+    isOnSale: product.isOnSale ?? false,
+    salePercentage: product.salePercentage ?? 0,
+  };
+  showSaleModal.value = true;
+};
+
+const handleSaveSale = async () => {
+  try {
+    const { productId, isOnSale, salePercentage } = saleForm.value;
+
+    if (isOnSale && (salePercentage == null || Number.isNaN(salePercentage) || salePercentage < 0 || salePercentage > 100)) {
+      message.error('Vui lòng nhập phần trăm sale từ 0 đến 100');
+      return;
+    }
+
+    savingSale.value = true;
+
+    await ProductService.updateSale(productId, {
+      isOnSale,
+      salePercentage: isOnSale ? salePercentage : 0,
+    });
+
+    message.success('Cập nhật sale sản phẩm thành công');
+    showSaleModal.value = false;
+    await loadProducts();
+  } catch (error: any) {
+    message.error(error?.response?.data?.message || 'Lỗi khi cập nhật sale sản phẩm');
+  } finally {
+    savingSale.value = false;
+  }
+};
+
 const generateSlug = (name: string) => {
   return name
     .toLowerCase()
@@ -458,13 +533,21 @@ const handleToggleStatus = async (productId: number, status: 'ACTIVE' | 'INACTIV
 };
 
 const handleAddVariant = async () => {
+  // Validate required fields
+  if (!variantForm.value.sku || !variantForm.value.price || variantForm.value.stock === undefined) {
+    message.warning('Vui lòng điền đầy đủ thông tin bắt buộc (SKU, Giá, Tồn kho)');
+    return;
+  }
+
   const attrs: Record<string, string> = {};
   variantAttributes.value.forEach(({ key, value }) => {
     if (key?.trim() && value !== undefined && value !== '') {
       attrs[key.trim()] = value;
     }
   });
+  
   if (!editingProduct.value) {
+    // Tạo sản phẩm mới - lưu vào pendingVariants
     const currentSku = variantForm.value.sku;
     const variantData = {
       ...variantForm.value,
@@ -483,15 +566,27 @@ const handleAddVariant = async () => {
     variantAttributes.value = [{ key: '', value: '' }];
     return;
   }
+  
+  // Chỉnh sửa sản phẩm - gọi API tạo biến thể ngay
   try {
-    // Create variant with imageUrl = null
-    const variantData = {
-      ...variantForm.value,
-      attributes: Object.keys(attrs).length ? attrs : undefined,
-    };
-    const createdVariant = await ProductService.createVariant(editingProduct.value.id, variantData);
+    addingVariant.value = true;
     
-    // Upload variant image after creating variant
+    // Build variant data
+    const variantData = {
+      sku: variantForm.value.sku,
+      name: variantForm.value.name || undefined,
+      price: variantForm.value.price,
+      stock: variantForm.value.stock,
+      attributes: Object.keys(attrs).length > 0 ? attrs : undefined,
+    };
+    
+    console.log('Creating variant for product:', editingProduct.value.id, variantData);
+    
+    // Create variant
+    const createdVariant = await ProductService.createVariant(editingProduct.value.id, variantData);
+    console.log('Variant created:', createdVariant);
+    
+    // Upload variant image after creating variant (if exists)
     const variantImageFile = variantImageFiles.value[variantForm.value.sku];
     if (variantImageFile && createdVariant.id) {
       try {
@@ -507,8 +602,9 @@ const handleAddVariant = async () => {
     }
     
     message.success('Thêm biến thể thành công');
+    
+    // Clear form
     const currentSku = variantForm.value.sku;
-    // Clear variant image before clearing form
     if (variantImageFiles.value[currentSku]) {
       delete variantImageFiles.value[currentSku];
     }
@@ -517,9 +613,14 @@ const handleAddVariant = async () => {
     }
     variantForm.value = { sku: '', name: '', price: 0, stock: 0 };
     variantAttributes.value = [{ key: '', value: '' }];
+    
+    // Reload product data to show new variant
     await handleEdit(editingProduct.value);
   } catch (error: any) {
+    console.error('Error adding variant:', error);
     message.error(error.response?.data?.message || 'Lỗi khi thêm biến thể');
+  } finally {
+    addingVariant.value = false;
   }
 };
 
@@ -536,6 +637,165 @@ const handleDeleteVariant = async (variantId: number) => {
   } catch (error: any) {
     message.error('Lỗi khi xóa biến thể');
   }
+};
+
+const handleEditVariant = (variant: ProductVariant) => {
+  if (!editingProduct.value) return;
+  editingVariant.value = { ...variant };
+  editVariantForm.value = {
+    sku: variant.sku,
+    name: variant.name || '',
+    price: variant.price,
+    stock: variant.stock,
+  };
+  
+  // Load attributes
+  if (variant.attributes && Object.keys(variant.attributes).length > 0) {
+    editVariantAttributes.value = Object.entries(variant.attributes).map(([key, value]) => ({
+      key,
+      value: String(value),
+    }));
+  } else {
+    editVariantAttributes.value = [{ key: '', value: '' }];
+  }
+  
+  // Load image
+  editVariantImageUrl.value = variant.imageUrl || null;
+  editVariantImageFile.value = null;
+  
+  showEditVariantModal.value = true;
+};
+
+const handleSaveEditVariant = async () => {
+  if (!editingProduct.value || !editingVariant.value) return;
+  
+  try {
+    saving.value = true;
+    
+    // Build attributes
+    const attrs: Record<string, string> = {};
+    editVariantAttributes.value.forEach(({ key, value }) => {
+      if (key?.trim() && value !== undefined && value !== '') {
+        attrs[key.trim()] = value;
+      }
+    });
+    const newAttributes = Object.keys(attrs).length > 0 ? attrs : undefined;
+    
+    // So sánh và chỉ lấy các trường đã thay đổi
+    const updateData: UpdateVariantRequest = {};
+    
+    if (editVariantForm.value.sku !== editingVariant.value.sku) {
+      updateData.sku = editVariantForm.value.sku;
+    }
+    
+    const oldName = editingVariant.value.name || '';
+    const newName = editVariantForm.value.name || '';
+    if (oldName !== newName) {
+      updateData.name = newName || undefined;
+    }
+    
+    if (editVariantForm.value.price !== editingVariant.value.price) {
+      updateData.price = editVariantForm.value.price;
+    }
+    
+    if (editVariantForm.value.stock !== editingVariant.value.stock) {
+      updateData.stock = editVariantForm.value.stock;
+    }
+    
+    // So sánh attributes
+    const oldAttributes = editingVariant.value.attributes || {};
+    const oldAttrsStr = JSON.stringify(oldAttributes);
+    const newAttrsStr = JSON.stringify(newAttributes || {});
+    if (oldAttrsStr !== newAttrsStr) {
+      updateData.attributes = newAttributes;
+    }
+    
+    // Xử lý ảnh: nếu có file mới, upload và cập nhật imageUrl
+    // Nếu có file mới (editVariantImageFile), upload trước
+    if (editVariantImageFile.value) {
+      try {
+        const uploadedUrl = await ProductService.uploadVariantImage(
+          editingProduct.value.id,
+          editingVariant.value.id,
+          editVariantImageFile.value
+        );
+        // Chỉ thêm imageUrl vào updateData nếu URL mới khác với URL cũ
+        if (uploadedUrl !== (editingVariant.value.imageUrl || '')) {
+          updateData.imageUrl = uploadedUrl;
+        }
+      } catch (error: any) {
+        message.warning('Lỗi khi upload ảnh biến thể');
+        // Nếu upload lỗi, không tiếp tục
+        saving.value = false;
+        return;
+      }
+    } else {
+      // Nếu không có file mới, kiểm tra xem có xóa ảnh không (editVariantImageUrl là null nhưng editingVariant có imageUrl)
+      const oldImageUrl = editingVariant.value.imageUrl || null;
+      const newImageUrl = editVariantImageUrl.value;
+      if (oldImageUrl !== newImageUrl) {
+        updateData.imageUrl = newImageUrl || undefined;
+      }
+    }
+    
+    // Chỉ gọi API nếu có thay đổi
+    if (Object.keys(updateData).length > 0) {
+      await ProductService.updateVariant(
+        editingProduct.value.id,
+        editingVariant.value.id,
+        updateData
+      );
+      message.success('Cập nhật biến thể thành công');
+    } else {
+      message.info('Không có thay đổi nào');
+    }
+    
+    showEditVariantModal.value = false;
+    await handleEdit(editingProduct.value);
+  } catch (error: any) {
+    message.error(error.response?.data?.message || 'Lỗi khi cập nhật biến thể');
+  } finally {
+    saving.value = false;
+  }
+};
+
+const addEditVariantAttributeRow = () => {
+  editVariantAttributes.value.push({ key: '', value: '' });
+};
+
+const removeEditVariantAttributeRow = (index: number) => {
+  if (editVariantAttributes.value.length === 1) {
+    editVariantAttributes.value[0] = { key: '', value: '' };
+    return;
+  }
+  editVariantAttributes.value.splice(index, 1);
+};
+
+const getEditVariantImageFileList = computed<UploadFileInfo[]>(() => {
+  if (editVariantImageUrl.value) {
+    return [{
+      id: 'edit-variant-image',
+      name: editVariantImageFile.value?.name || 'variant-image',
+      status: 'finished',
+      url: editVariantImageUrl.value,
+    }];
+  }
+  return [];
+});
+
+const handleEditVariantImageChange = ({ fileList }: { fileList: UploadFileInfo[] }) => {
+  if (fileList.length === 0) {
+    editVariantImageFile.value = null;
+    editVariantImageUrl.value = null;
+    return;
+  }
+
+  const file = fileList[fileList.length - 1].file;
+  if (!file) return;
+
+  editVariantImageFile.value = file;
+  // Tạo preview URL
+  editVariantImageUrl.value = URL.createObjectURL(file);
 };
 
 const productImageFileList = computed<UploadFileInfo[]>(() => {
@@ -677,6 +937,16 @@ onMounted(() => {
               <div><strong>Xuất xứ:</strong> {{ viewingProduct.origin || '-' }}</div>
               <div><strong>Giá tối thiểu:</strong> {{ viewingProduct.minPrice ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(viewingProduct.minPrice) : '-' }}</div>
               <div><strong>Trạng thái:</strong> {{ viewingProduct.status === 'ACTIVE' ? 'Đang bán' : 'Ngừng' }}</div>
+              <div>
+                <strong>Sale:</strong>
+                <span v-if="viewingProduct.isOnSale">
+                  Đang sale
+                  <span v-if="typeof viewingProduct.salePercentage === 'number'">
+                    ({{ viewingProduct.salePercentage }}%)
+                  </span>
+                </span>
+                <span v-else>Không sale</span>
+              </div>
               <div class="col-span-2"><strong>Mô tả:</strong> {{ viewingProduct.description || '-' }}</div>
             </div>
           </NCard>
@@ -709,6 +979,42 @@ onMounted(() => {
         <NButton @click="showViewModal = false">Đóng</NButton>
       </template>
     </NModal>
+
+    <!-- Sale Config Modal -->
+    <NModal
+      v-model:show="showSaleModal"
+      title="Thiết lập sale sản phẩm"
+      preset="dialog"
+      style="width: 480px"
+    >
+      <NForm :model="saleForm" label-placement="left" label-width="120">
+        <NFormItem label="Sản phẩm">
+          <span class="font-semibold">{{ saleForm.name }}</span>
+        </NFormItem>
+        <NFormItem label="Đang sale">
+          <NSwitch v-model:value="saleForm.isOnSale" />
+        </NFormItem>
+        <NFormItem label="% Sale">
+          <div class="flex items-center gap-2">
+            <NInputNumber
+              v-model:value="saleForm.salePercentage"
+              :min="0"
+              :max="100"
+              :disabled="!saleForm.isOnSale"
+              style="width: 140px"
+            />
+            <span>%</span>
+          </div>
+        </NFormItem>
+      </NForm>
+      <template #action>
+        <NButton @click="showSaleModal = false">Hủy</NButton>
+        <NButton type="primary" :loading="savingSale" @click="handleSaveSale">
+          Lưu
+        </NButton>
+      </template>
+    </NModal>
+
     <NModal v-model:show="showModal" :title="modalTitle" preset="dialog" style="width: 900px">
       <NTabs type="line" animated>
         <NTabPane name="basic" tab="Thông tin cơ bản">
@@ -767,7 +1073,7 @@ onMounted(() => {
         <NTabPane name="variants" tab="Biến thể">
           <div class="space-y-6">
             <!-- Form thêm biến thể mới -->
-            <NCard title="Thông tin biến thể" size="small">
+            <NCard :title="editingProduct ? 'Thêm biến thể mới' : 'Thông tin biến thể'" size="small">
               <div class="space-y-4">
                 <!-- Thông tin cơ bản -->
                 <div>
@@ -820,6 +1126,9 @@ onMounted(() => {
                     <div v-if="!editingProduct && variantImageFiles[variantForm.sku]" class="text-xs text-gray-500 mt-1">
                       Ảnh sẽ được upload sau khi tạo biến thể
                     </div>
+                    <div v-if="editingProduct && variantImageFiles[variantForm.sku]" class="text-xs text-blue-500 mt-1">
+                      Ảnh sẽ được upload sau khi thêm biến thể
+                    </div>
                   </NFormItem>
                 </div>
 
@@ -871,7 +1180,12 @@ onMounted(() => {
 
                 <!-- Nút thêm biến thể -->
                 <div class="flex items-center gap-3 pt-2 border-t border-neutral-200">
-                  <NButton type="primary" @click="handleAddVariant" :disabled="!variantForm.sku || !variantForm.price || variantForm.stock === undefined">
+                  <NButton 
+                    type="primary" 
+                    @click="handleAddVariant" 
+                    :loading="addingVariant"
+                    :disabled="addingVariant || !variantForm.sku || !variantForm.price || variantForm.stock === undefined"
+                  >
                     <template #icon>
                       <NIcon><Plus /></NIcon>
                     </template>
@@ -880,6 +1194,10 @@ onMounted(() => {
                   <div v-if="!editingProduct" class="text-xs text-neutral-500 flex-1 flex items-center gap-1">
                     <NIcon size="14"><ImageIcon /></NIcon>
                     <span>Biến thể được lưu tạm và sẽ tạo sau khi bạn bấm "Lưu sản phẩm"</span>
+                  </div>
+                  <div v-if="editingProduct" class="text-xs text-blue-500 flex-1 flex items-center gap-1">
+                    <NIcon size="14"><Plus /></NIcon>
+                    <span>Biến thể sẽ được tạo ngay sau khi bạn bấm "Thêm biến thể"</span>
                   </div>
                 </div>
               </div>
@@ -927,20 +1245,30 @@ onMounted(() => {
                   { 
                     title: 'Thao tác', 
                     key: 'actions', 
-                    width: 100,
-                    render: (row) => h(NPopconfirm, { 
-                      onPositiveClick: () => handleDeleteVariant(row.id) 
-                    }, { 
-                      trigger: () => h(NButton, { 
-                        size: 'small', 
-                        type: 'error',
-                        quaternary: true
+                    width: 150,
+                    render: (row) => [
+                      h(NButton, {
+                        size: 'small',
+                        type: 'primary',
+                        quaternary: true,
+                        style: { marginRight: '6px' },
+                        onClick: () => handleEditVariant(row)
+                      }, {
+                        icon: () => h(NIcon, null, { default: () => h(Pencil) })
+                      }),
+                      h(NPopconfirm, { 
+                        onPositiveClick: () => handleDeleteVariant(row.id) 
                       }, { 
-                        default: () => 'Xóa',
-                        icon: () => h(NIcon, null, { default: () => h(Trash) })
-                      }), 
-                      default: () => 'Bạn có chắc muốn xóa biến thể này?' 
-                    })
+                        trigger: () => h(NButton, { 
+                          size: 'small', 
+                          type: 'error',
+                          quaternary: true
+                        }, { 
+                          icon: () => h(NIcon, null, { default: () => h(Trash) })
+                        }), 
+                        default: () => 'Bạn có chắc muốn xóa biến thể này?' 
+                      })
+                    ]
                   },
                 ]"
                 :data="editingProduct.variants"
@@ -960,6 +1288,98 @@ onMounted(() => {
       <template #action>
         <NButton @click="showModal = false">Hủy</NButton>
         <NButton type="primary" :loading="saving" @click="handleSave">Lưu</NButton>
+      </template>
+    </NModal>
+
+    <!-- Edit Variant Modal -->
+    <NModal v-model:show="showEditVariantModal" title="Chỉnh sửa biến thể" preset="dialog" style="width: 700px">
+      <NForm v-if="editingVariant" :model="editVariantForm" label-placement="left" label-width="120">
+        <NFormItem label="SKU" :required="true">
+          <NInput v-model:value="editVariantForm.sku" placeholder="Nhập SKU" />
+        </NFormItem>
+        <NFormItem label="Tên biến thể">
+          <NInput v-model:value="editVariantForm.name" placeholder="Nhập tên biến thể (tùy chọn)" />
+        </NFormItem>
+        <NFormItem label="Giá" :required="true">
+          <div class="flex items-center gap-2" style="width: 100%">
+            <NInput
+              :value="editVariantForm.price ? formatPrice(editVariantForm.price) : ''"
+              @update:value="(val) => { const parsed = parsePrice(val); editVariantForm.price = parsed ? Number(parsed) : 0; }"
+              placeholder="Nhập giá"
+              style="flex: 1"
+              type="text"
+            />
+            <span class="text-neutral-600 font-medium min-w-[30px]">₫</span>
+          </div>
+        </NFormItem>
+        <NFormItem label="Tồn kho" :required="true">
+          <NInputNumber 
+            v-model:value="editVariantForm.stock" 
+            placeholder="Nhập số lượng" 
+            :min="0" 
+            :precision="0"
+            style="width: 100%"
+          />
+        </NFormItem>
+        <NFormItem label="Ảnh biến thể">
+          <NUpload
+            :max="1"
+            :default-upload="false"
+            :file-list="getEditVariantImageFileList"
+            :on-change="handleEditVariantImageChange"
+            accept="image/*"
+            list-type="image-card"
+          >
+            <NButton>Chọn ảnh</NButton>
+          </NUpload>
+        </NFormItem>
+        <NFormItem label="Thuộc tính">
+          <div class="space-y-2 w-full">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm text-neutral-600">Thuộc tính (tùy chọn)</span>
+              <NButton size="small" quaternary @click="addEditVariantAttributeRow">
+                <template #icon>
+                  <NIcon><Plus /></NIcon>
+                </template>
+                Thêm thuộc tính
+              </NButton>
+            </div>
+            <div v-if="editVariantAttributes.length > 0" class="space-y-2">
+              <div 
+                v-for="(attr, index) in editVariantAttributes" 
+                :key="index" 
+                class="flex items-center gap-3 p-3 bg-neutral-50 rounded-lg border border-neutral-200"
+              >
+                <div class="flex-1 grid grid-cols-2 gap-3">
+                  <NInput 
+                    v-model:value="attr.key" 
+                    placeholder="Tên thuộc tính (vd: Màu sắc, Kích thước)" 
+                  />
+                  <NInput 
+                    v-model:value="attr.value" 
+                    placeholder="Giá trị (vd: Đỏ, L)" 
+                  />
+                </div>
+                <NButton 
+                  size="small" 
+                  quaternary 
+                  type="error" 
+                  @click="removeEditVariantAttributeRow(index)" 
+                  :disabled="editVariantAttributes.length === 1"
+                >
+                  <template #icon>
+                    <NIcon><Trash /></NIcon>
+                  </template>
+                  Xóa
+                </NButton>
+              </div>
+            </div>
+          </div>
+        </NFormItem>
+      </NForm>
+      <template #action>
+        <NButton @click="showEditVariantModal = false">Hủy</NButton>
+        <NButton type="primary" :loading="saving" @click="handleSaveEditVariant">Lưu</NButton>
       </template>
     </NModal>
   </div>

@@ -86,13 +86,13 @@ const stats = [
             Mang Hương Vị Nhật Bản Đến Việt Nam
           </h2>
           <p class="text-neutral-600 leading-relaxed">
-            14Elevent được thành lập với sứ mệnh mang đến cho người Việt Nam những trải nghiệm 
+            14 Elevent được thành lập với sứ mệnh mang đến cho người Việt Nam những trải nghiệm 
             ẩm thực Nhật Bản chân thực nhất. Chúng tôi tin rằng ẩm thực không chỉ là thức ăn, mà còn 
             là cầu nối văn hóa, là cách để hiểu và yêu mến một đất nước.
           </p>
           <p class="text-neutral-600 leading-relaxed">
             Từ những món ăn truyền thống như sushi, ramen đến những món snack độc đáo, mỗi sản phẩm 
-            tại Nihon Market đều được tuyển chọn kỹ lưỡng, đảm bảo chất lượng và độ tươi ngon. Chúng tôi 
+            tại 14 Elevent đều được tuyển chọn kỹ lưỡng, đảm bảo chất lượng và độ tươi ngon. Chúng tôi 
             hợp tác trực tiếp với các nhà cung cấp uy tín tại Nhật Bản để mang đến những sản phẩm chính gốc, 
             không qua trung gian.
           </p>

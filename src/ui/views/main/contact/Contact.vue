@@ -42,8 +42,38 @@ const contactInfo = [
 const mapEmbedUrl =
   'https://www.google.com/maps?q=13%20B%C3%B9i%20Ng%E1%BB%8Dc%20D%C6%B0%C6%A1ng,%20B%E1%BA%A1ch%20Mai,%20H%C3%A0%20N%E1%BB%99i&output=embed';
 
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const validatePhone = (phone: string): boolean => {
+  if (!phone.trim()) return true; // Phone is optional
+  // Chấp nhận số điện thoại Việt Nam: 0xxxxxxxxx hoặc +84xxxxxxxxx hoặc 84xxxxxxxxx
+  const phoneRegex = /^(0|\+84|84)[1-9][0-9]{8,9}$/;
+  const cleanPhone = phone.replace(/[\s-]/g, '');
+  return phoneRegex.test(cleanPhone);
+};
+
 const handleSubmit = async (e: Event) => {
   e.preventDefault();
+  
+  // Validate email
+  if (!formData.value.email.trim()) {
+    messageApi.warning('Vui lòng nhập email.');
+    return;
+  }
+  if (!validateEmail(formData.value.email)) {
+    messageApi.warning('Email không hợp lệ. Vui lòng nhập đúng định dạng email.');
+    return;
+  }
+  
+  // Validate phone (optional but if provided must be valid)
+  if (formData.value.phone.trim() && !validatePhone(formData.value.phone)) {
+    messageApi.warning('Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam (10-11 số, bắt đầu bằng 0 hoặc +84).');
+    return;
+  }
+  
   try {
     await ContactService.sendContact({
       name: formData.value.name,

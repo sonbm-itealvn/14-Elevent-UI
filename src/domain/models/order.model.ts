@@ -96,6 +96,7 @@ export interface ApproveOrderRequest {
 export interface UpdateOrderStatusRequest {
   status: OrderStatus;
   note?: string;
+  trackingUrl?: string;
 }
 
 export interface CancelOrderRequest {

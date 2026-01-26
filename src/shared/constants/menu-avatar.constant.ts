@@ -1,4 +1,4 @@
-import { LogOutOutline as LogoutIcon, PersonCircleOutline as UserIcon, SettingsOutline as SettingsIcon, ChatbubbleEllipsesOutline as SupportIcon } from '@vicons/ionicons5';
+import { LogOutOutline as LogoutIcon, PersonCircleOutline as UserIcon, ChatbubbleEllipsesOutline as SupportIcon, ReceiptOutline as ReceiptIcon } from '@vicons/ionicons5';
 
 const menuAvatarOptions = [
     {
@@ -7,9 +7,9 @@ const menuAvatarOptions = [
         icon: UserIcon,
     },
     {
-        label: 'Settings',
-        key: 'settings',
-        icon: SettingsIcon,
+        label: 'Lịch sử mua hàng',
+        key: 'order-history',
+        icon: ReceiptIcon,
     },
     {
         label: 'Support and feedback',

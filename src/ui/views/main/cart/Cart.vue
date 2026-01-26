@@ -537,6 +537,18 @@ const closeCheckoutModal = () => {
 const handleCheckout = async () => {
   if (submittingCheckout.value) return;
 
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    // Chấp nhận số điện thoại Việt Nam: 0xxxxxxxxx hoặc +84xxxxxxxxx hoặc 84xxxxxxxxx
+    const phoneRegex = /^(0|\+84|84)[1-9][0-9]{8,9}$/;
+    const cleanPhone = phone.replace(/[\s-]/g, '');
+    return phoneRegex.test(cleanPhone);
+  };
+
   // Validate form
   if (!checkoutForm.value.receiverName.trim()) {
     message.warning("Vui lòng nhập tên người nhận");
@@ -544,6 +556,10 @@ const handleCheckout = async () => {
   }
   if (!checkoutForm.value.receiverPhone.trim()) {
     message.warning("Vui lòng nhập số điện thoại");
+    return;
+  }
+  if (!validatePhone(checkoutForm.value.receiverPhone)) {
+    message.warning("Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam (10-11 số, bắt đầu bằng 0 hoặc +84).");
     return;
   }
   if (!checkoutForm.value.shippingAddress.trim()) {
@@ -555,9 +571,15 @@ const handleCheckout = async () => {
     return;
   }
   // Guest cần email
-  if (!authStore.isAuthenticated && !checkoutForm.value.buyerEmail.trim()) {
-    message.warning("Vui lòng nhập email");
-    return;
+  if (!authStore.isAuthenticated) {
+    if (!checkoutForm.value.buyerEmail.trim()) {
+      message.warning("Vui lòng nhập email");
+      return;
+    }
+    if (!validateEmail(checkoutForm.value.buyerEmail)) {
+      message.warning("Email không hợp lệ. Vui lòng nhập đúng định dạng email.");
+      return;
+    }
   }
 
   submittingCheckout.value = true;

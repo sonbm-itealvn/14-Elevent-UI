@@ -17,6 +17,8 @@ export interface Product {
   };
   categoryName?: string;
   minPrice?: number;
+  isOnSale?: boolean;
+  salePercentage?: number;
   images?: ProductImage[];
   variants?: ProductVariant[];
   createdAt?: string;
@@ -94,6 +96,7 @@ export interface UpdateVariantRequest {
   price?: number;
   stock?: number;
   attributes?: Record<string, any>;
+  imageUrl?: string;
 }
 
 export interface UpdateVariantStockRequest {

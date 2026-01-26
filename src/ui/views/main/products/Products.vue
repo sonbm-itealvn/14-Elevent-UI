@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { Search, Filter, X } from '@vicons/tabler';
+import { useRoute } from 'vue-router';
+import { Search, Filter, X, Bolt } from '@vicons/tabler';
 import PublicProductService from '@/core/services/api/public-product.service';
 import type { PublicProduct } from '@/core/services/api/public-product.service';
 import CategoryService from '@/core/services/api/category.service';
@@ -8,6 +9,7 @@ import type { CategoryTreeResponse } from '@/domain/models/category.model';
 import { useMessage } from 'naive-ui';
 
 const message = useMessage();
+const route = useRoute();
 
 const allProducts = ref<PublicProduct[]>([]);
 const categories = ref<CategoryTreeResponse[]>([]);
@@ -27,6 +29,13 @@ const showFilters = ref(false);
 const formatPrice = (price?: number) => {
   if (!price) return '0 đ';
   return new Intl.NumberFormat('vi-VN').format(price) + ' đ';
+};
+
+const calculateOriginalPrice = (salePrice: number, salePercentage: number): number => {
+  // Giá gốc = Giá sale / (1 - salePercentage/100)
+  const originalPrice = salePrice / (1 - salePercentage / 100);
+  // Làm tròn đến hàng nghìn
+  return Math.round(originalPrice / 1000) * 1000;
 };
 
 const findCategoryName = (slug: string | null): string | undefined => {
@@ -135,7 +144,14 @@ watch(searchQuery, () => {
 
 
 onMounted(() => {
-  // Chỉ load products khi vào trang, không có filter
+  // Đọc query params từ URL
+  const categorySlug = route.query.categorySlug as string | undefined;
+  if (categorySlug) {
+    selectedCategory.value = categorySlug;
+  }
+  
+  // Load categories và products
+  loadCategories();
   loadProducts();
 });
 </script>
@@ -385,8 +401,17 @@ onMounted(() => {
                 :alt="item.name"
                 class="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
               />
-              <div class="absolute top-3 left-3 px-3 py-1 text-sm font-semibold rounded text-white bg-black">
+              <!-- Badge góc trên bên trái -->
+              <div v-if="item.isOnSale" class="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-sm font-semibold rounded flex items-center gap-1">
+                <Bolt class="h-4 w-4" />
+                FLASH SALE
+              </div>
+              <div v-else class="absolute top-3 left-3 px-3 py-1 text-sm font-semibold rounded text-white bg-black">
                 NEW
+              </div>
+              <!-- % Sale góc trên bên phải -->
+              <div v-if="item.isOnSale && item.salePercentage" class="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 text-sm font-bold rounded">
+                -{{ item.salePercentage }}%
               </div>
             </div>
             <div class="p-5 flex flex-col gap-3">
@@ -399,8 +424,16 @@ onMounted(() => {
               </div>
             </div>
           </router-link>
-          <div class="px-5 pb-4 pt-0 flex items-center justify-between border-t border-neutral-100">
-            <div class="flex items-baseline gap-2">
+          <div class="px-5 pb-4 pt-0 flex flex-col gap-1 border-t border-neutral-100">
+            <div v-if="item.isOnSale && item.salePercentage && item.minPrice" class="flex flex-col gap-1">
+              <!-- Giá gốc với đường gạch ngang -->
+              <span class="text-neutral-400 text-sm line-through">
+                {{ formatPrice(calculateOriginalPrice(item.minPrice, item.salePercentage)) }}
+              </span>
+              <!-- Giá sale -->
+              <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+            </div>
+            <div v-else class="flex items-baseline gap-2">
               <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
             </div>
           </div>

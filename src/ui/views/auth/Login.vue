@@ -24,9 +24,25 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 const oauthUrls = ref<Record<string, string>>({});
 
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
 const handleLogin = async (e: Event) => {
   e.preventDefault();
   errorMessage.value = '';
+  
+  // Validate email
+  if (!formData.value.email.trim()) {
+    errorMessage.value = 'Vui lòng nhập email.';
+    return;
+  }
+  if (!validateEmail(formData.value.email)) {
+    errorMessage.value = 'Email không hợp lệ. Vui lòng nhập đúng định dạng email.';
+    return;
+  }
+  
   isLoading.value = true;
 
   try {

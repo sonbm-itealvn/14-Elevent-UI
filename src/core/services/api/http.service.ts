@@ -44,9 +44,18 @@ class HttpService {
         }
     }
 
-    public async put<T>(url: string, payload: Record<string,any> | null) :Promise<BaseResponse<T>> {
+    public async put<T>(url: string, payload: Record<string,any> | FormData | null) :Promise<BaseResponse<T>> {
         try {
-            const response = await this.axiosInstance.put<BaseResponse<T>>(url, payload, { signal: this.controller.signal });
+            const config: AxiosRequestConfig = { signal: this.controller.signal };
+            
+            // Nếu payload là FormData, thêm header multipart/form-data
+            if (payload instanceof FormData) {
+                config.headers = {
+                    'Content-Type': 'multipart/form-data'
+                };
+            }
+            
+            const response = await this.axiosInstance.put<BaseResponse<T>>(url, payload, config);
             return response.data as BaseResponse<T>;
         } catch (error) {
             throw error;

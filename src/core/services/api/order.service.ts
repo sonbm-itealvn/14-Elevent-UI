@@ -26,6 +26,45 @@ class OrderService {
   }
 
   /**
+   * Lấy lịch sử đơn hàng của user - GET /api/orders
+   */
+  async getUserOrders(params?: {
+    page?: number;
+    size?: number;
+    status?: OrderStatus;
+  }): Promise<OrderPageResponse> {
+    const response = await this.httpService.get<OrderPageResponse>(
+      "/api/orders",
+      params
+    );
+    if (!response.data) {
+      return {
+        content: [],
+        page: params?.page || 0,
+        size: params?.size || 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      };
+    }
+    return response.data;
+  }
+
+  /**
+   * Lấy chi tiết đơn hàng của user - GET /api/orders/{orderId}
+   */
+  async getUserOrderById(orderId: number): Promise<Order> {
+    const response = await this.httpService.get<Order>(
+      `/api/orders/${orderId}`
+    );
+    if (!response.data) {
+      throw new Error('Không tìm thấy đơn hàng');
+    }
+    return response.data;
+  }
+
+  /**
    * Lấy danh sách đơn hàng (Admin) - GET /api/admin/orders
    */
   async getOrders(params?: {

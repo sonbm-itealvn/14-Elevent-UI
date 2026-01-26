@@ -24,7 +24,7 @@ class UserProfileService {
   async updateAvatar(file: File): Promise<User> {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await this.httpService.upload<User>(
+    const response = await this.httpService.put<User>(
       "/api/users/me/avatar",
       formData
     );
