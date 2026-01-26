@@ -129,7 +129,11 @@ const loadUsers = async () => {
       size: pagination.value.pageSize,
     });
     users.value = response.content;
-    pagination.value.total = response.totalElements;
+    // Cập nhật toàn bộ pagination object để đảm bảo reactivity
+    pagination.value = {
+      ...pagination.value,
+      total: response.totalElements,
+    };
     loading.value = false;
   } catch (error: any) {
     message.error(error.response?.data?.message || 'Lỗi khi tải danh sách người dùng');
@@ -229,6 +233,7 @@ onMounted(() => {
       :data="users"
       :loading="loading"
       :pagination="pagination"
+      remote
       @update:page="(page) => { pagination.page = page; loadUsers(); }"
       @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadUsers(); }"
       striped
