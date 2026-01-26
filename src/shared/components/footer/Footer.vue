@@ -12,7 +12,6 @@ import {
   BrandTiktok
 } from '@vicons/tabler';
 import CategoryService from '@/core/services/api/category.service';
-import type { CategoryTreeResponse } from '@/domain/models/category.model';
 
 const router = useRouter();
 

@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import PublicProductService from '@/core/services/api/public-product.service';
 import type { PublicProduct } from '@/core/services/api/public-product.service';
 import { useMessage } from 'naive-ui';
 import ContactService from '@/core/services/api/contact.service';
 import { Bolt } from '@vicons/tabler';
-
-const router = useRouter();
 
 const message = useMessage();
 const heroImage =

@@ -3,6 +3,7 @@ import axiosInstance from "@/core/interceptors/axios.instance";
 import type {
   Order,
   AdminOrderPageResponse,
+  OrderPageResponse,
   UpdateOrderStatusRequest,
   UpdatePaymentStatusRequest,
   ApproveOrderRequest,

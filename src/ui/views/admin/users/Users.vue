@@ -250,7 +250,7 @@ onMounted(() => {
           label="Số điện thoại" 
           path="phone"
           :rule="{
-            validator: (rule, value) => {
+            validator: (_rule, value) => {
               if (!value || !value.trim()) return true; // Phone is optional
               const phoneRegex = /^(0|\+84|84)[1-9][0-9]{8,9}$/;
               const cleanPhone = value.replace(/[\s-]/g, '');

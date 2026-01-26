@@ -23,6 +23,7 @@ export interface Order {
   paymentTransactionNo?: string;
   paymentPaidAt?: string;
   note?: string;
+  trackingUrl?: string;
   // items có thể không có trong list response, chỉ có trong detail
   items?: OrderItem[];
   createdAt?: string;

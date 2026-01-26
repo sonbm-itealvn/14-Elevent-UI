@@ -2,16 +2,14 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
-  NButton,
   NTag,
   NDivider,
-  NSpace,
   NImage,
   NSpin,
   useMessage,
   NCard,
 } from 'naive-ui';
-import { ArrowLeft, Package, MapPin, Phone, Mail, Calendar, CreditCard } from '@vicons/tabler';
+import { ArrowLeft, Package, MapPin, Phone, Calendar, CreditCard } from '@vicons/tabler';
 import OrderService from '@/core/services/api/order.service';
 import type { Order, OrderStatus } from '@/domain/models/order.model';
 
@@ -144,11 +142,11 @@ onMounted(() => {
                 </p>
               </div>
               <div class="flex flex-wrap gap-3">
-                <n-tag :type="getStatusColor(order.status)" size="large">
+                <n-tag :type="getStatusColor(order.status) as any" size="large">
                   {{ getStatusLabel(order.status) }}
                 </n-tag>
                 <n-tag
-                  :type="order.paymentStatus === 'SUCCESS' ? 'success' : 'warning'"
+                  :type="(order.paymentStatus === 'SUCCESS' ? 'success' : 'warning') as any"
                   size="large"
                 >
                   {{ getPaymentStatusLabel(order.paymentStatus) }}
