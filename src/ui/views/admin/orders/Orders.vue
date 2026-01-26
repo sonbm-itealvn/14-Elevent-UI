@@ -17,7 +17,7 @@ import {
   NDatePicker,
   type SelectOption
 } from 'naive-ui';
-import { Eye, Check, X, Cash, Download } from '@vicons/tabler';
+import { Eye, Check, X, Download } from '@vicons/tabler';
 import OrderService from '@/core/services/api/order.service';
 import type { Order, OrderStatus } from '@/domain/models/order.model';
 
@@ -42,6 +42,13 @@ const selectedOrder = ref<Order | null>(null);
 const showCancelModal = ref(false);
 const cancelReason = ref('');
 const cancelLoading = ref(false);
+
+// Shipping tracking modal
+const showTrackingModal = ref(false);
+const trackingUrl = ref('');
+const trackingNote = ref('');
+const trackingLoading = ref(false);
+const pendingStatusUpdate = ref<{ order: Order; status: OrderStatus } | null>(null);
 
 // Export filters
 const exportStartDate = ref<number | null>(null);
@@ -196,20 +203,6 @@ const columns = [
         );
       }
 
-      // Confirm COD button - only show when COD and payment pending
-      if (row.paymentMethod === 'COD' && row.paymentStatus === 'PENDING' && row.status !== 'CANCELLED') {
-        buttons.push(
-          h(NButton, {
-            size: 'small',
-            circle: true,
-            tertiary: true,
-            type: 'info',
-            onClick: () => handleConfirmCod(row),
-            title: 'Xác nhận thanh toán COD',
-          }, { icon: () => h(NIcon, null, { default: () => h(Cash) }) })
-        );
-      }
-
       // Cancel button - show when not completed or cancelled
       if (row.status !== 'COMPLETED' && row.status !== 'CANCELLED') {
         buttons.push(
@@ -297,18 +290,19 @@ const handleCancel = async () => {
   }
 };
 
-const handleConfirmCod = async (order: Order) => {
-  try {
-    await OrderService.confirmCodPayment(order.id);
-    message.success('Đã xác nhận thanh toán COD thành công');
-    await loadOrders();
-  } catch (error: any) {
-    message.error(error.response?.data?.message || 'Lỗi khi xác nhận thanh toán COD');
-  }
-};
-
 const handleUpdateStatus = async (status: OrderStatus) => {
   if (!selectedOrder.value) return;
+  
+  // Nếu chuyển sang SHIPPING, hiển thị popup yêu cầu nhập trackingUrl
+  if (status === 'SHIPPING') {
+    pendingStatusUpdate.value = { order: selectedOrder.value, status };
+    trackingUrl.value = '';
+    trackingNote.value = '';
+    showTrackingModal.value = true;
+    return;
+  }
+  
+  // Các trạng thái khác, cập nhật bình thường
   try {
     await OrderService.updateOrderStatus(selectedOrder.value.id, { status });
     message.success('Cập nhật trạng thái đơn hàng thành công');
@@ -319,13 +313,82 @@ const handleUpdateStatus = async (status: OrderStatus) => {
   }
 };
 
-const handleUpdateStatusDirect = async (order: Order, status: OrderStatus) => {
+const handleUpdateStatusDirect = async (order: Order, newStatus: OrderStatus) => {
+  // Nếu chuyển sang SHIPPING, hiển thị popup yêu cầu nhập trackingUrl
+  if (newStatus === 'SHIPPING') {
+    pendingStatusUpdate.value = { order, status: newStatus };
+    trackingUrl.value = '';
+    trackingNote.value = '';
+    showTrackingModal.value = true;
+    // Không return ngay, để modal xử lý
+    return;
+  }
+  
+  // Các trạng thái khác, cập nhật bình thường
   try {
-    await OrderService.updateOrderStatus(order.id, { status });
+    await OrderService.updateOrderStatus(order.id, { status: newStatus });
     message.success('Cập nhật trạng thái đơn hàng thành công');
     await loadOrders();
   } catch (error: any) {
     message.error(error.response?.data?.message || 'Lỗi khi cập nhật trạng thái');
+    // Reload để reset select về giá trị cũ
+    await loadOrders();
+  }
+};
+
+const handleCancelTracking = () => {
+  showTrackingModal.value = false;
+  pendingStatusUpdate.value = null;
+  trackingUrl.value = '';
+  trackingNote.value = '';
+  // Reload để reset select về giá trị cũ
+  loadOrders();
+};
+
+const handleConfirmTracking = async () => {
+  if (!pendingStatusUpdate.value) return;
+  
+  // Validate trackingUrl khi chuyển sang SHIPPING
+  if (pendingStatusUpdate.value.status === 'SHIPPING' && !trackingUrl.value.trim()) {
+    message.warning('Vui lòng nhập URL theo dõi đơn hàng');
+    return;
+  }
+  
+  try {
+    trackingLoading.value = true;
+    const updateData: any = {
+      status: pendingStatusUpdate.value.status,
+    };
+    
+    // Chỉ thêm trackingUrl khi chuyển sang SHIPPING
+    if (pendingStatusUpdate.value.status === 'SHIPPING') {
+      updateData.trackingUrl = trackingUrl.value.trim();
+    }
+    
+    // Thêm note nếu có
+    if (trackingNote.value.trim()) {
+      updateData.note = trackingNote.value.trim();
+    }
+    
+    await OrderService.updateOrderStatus(pendingStatusUpdate.value.order.id, updateData);
+    message.success('Cập nhật trạng thái đơn hàng thành công');
+    
+    // Nếu đang xem chi tiết, reload lại
+    if (selectedOrder.value?.id === pendingStatusUpdate.value.order.id) {
+      await handleView(pendingStatusUpdate.value.order);
+    }
+    
+    showTrackingModal.value = false;
+    pendingStatusUpdate.value = null;
+    trackingUrl.value = '';
+    trackingNote.value = '';
+    await loadOrders();
+  } catch (error: any) {
+    message.error(error.response?.data?.message || 'Lỗi khi cập nhật trạng thái');
+    // Reload để reset select về giá trị cũ nếu có lỗi
+    await loadOrders();
+  } finally {
+    trackingLoading.value = false;
   }
 };
 
@@ -591,13 +654,6 @@ onMounted(() => {
             Duyệt đơn hàng
           </NButton>
           <NButton 
-            v-if="selectedOrder.paymentMethod === 'COD' && selectedOrder.paymentStatus === 'PENDING' && selectedOrder.status !== 'CANCELLED'" 
-            type="info"
-            @click="handleConfirmCod(selectedOrder)"
-          >
-            Xác nhận thanh toán COD
-          </NButton>
-          <NButton 
             v-if="selectedOrder.status !== 'COMPLETED' && selectedOrder.status !== 'CANCELLED'" 
             type="error"
             @click="openCancelModal(selectedOrder)"
@@ -625,6 +681,48 @@ onMounted(() => {
           <NButton @click="showCancelModal = false">Đóng</NButton>
           <NButton type="error" :loading="cancelLoading" @click="handleCancel">
             Xác nhận hủy
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
+    <!-- Shipping Tracking Modal -->
+    <NModal v-model:show="showTrackingModal" title="Nhập thông tin theo dõi đơn hàng" preset="card" style="width: 600px">
+      <NForm v-if="pendingStatusUpdate">
+        <NFormItem label="URL theo dõi đơn hàng" required>
+          <NInput
+            v-model:value="trackingUrl"
+            placeholder="Nhập URL theo dõi đơn hàng (bắt buộc)"
+            type="url"
+          />
+          <template #feedback>
+            <div class="text-xs text-gray-500 mt-1">
+              Ví dụ: https://tracking.viettelpost.vn/...
+            </div>
+          </template>
+        </NFormItem>
+        <NFormItem label="Ghi chú (tùy chọn)">
+          <NInput
+            v-model:value="trackingNote"
+            type="textarea"
+            placeholder="Nhập ghi chú nếu có..."
+            :rows="3"
+          />
+        </NFormItem>
+        <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+          <div class="text-sm text-blue-800">
+            <strong>Đơn hàng:</strong> {{ pendingStatusUpdate.order.orderCode || `#${pendingStatusUpdate.order.id}` }}
+          </div>
+          <div class="text-sm text-blue-800 mt-1">
+            <strong>Người nhận:</strong> {{ pendingStatusUpdate.order.receiverName }}
+          </div>
+        </div>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="handleCancelTracking">Hủy</NButton>
+          <NButton type="primary" :loading="trackingLoading" @click="handleConfirmTracking">
+            Xác nhận
           </NButton>
         </NSpace>
       </template>

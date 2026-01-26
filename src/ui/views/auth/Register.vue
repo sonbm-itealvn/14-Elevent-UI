@@ -26,7 +26,41 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
 
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const validatePhone = (phone: string): boolean => {
+  // Chấp nhận số điện thoại Việt Nam: 0xxxxxxxxx hoặc +84xxxxxxxxx hoặc 84xxxxxxxxx
+  const phoneRegex = /^(0|\+84|84)[1-9][0-9]{8,9}$/;
+  // Loại bỏ khoảng trắng và dấu gạch ngang để kiểm tra
+  const cleanPhone = phone.replace(/[\s-]/g, '');
+  return phoneRegex.test(cleanPhone);
+};
+
 const validateForm = () => {
+  // Validate email
+  if (!formData.value.email.trim()) {
+    errorMessage.value = 'Vui lòng nhập email.';
+    return false;
+  }
+  if (!validateEmail(formData.value.email)) {
+    errorMessage.value = 'Email không hợp lệ. Vui lòng nhập đúng định dạng email.';
+    return false;
+  }
+  
+  // Validate phone
+  if (!formData.value.phone.trim()) {
+    errorMessage.value = 'Vui lòng nhập số điện thoại.';
+    return false;
+  }
+  if (!validatePhone(formData.value.phone)) {
+    errorMessage.value = 'Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam (10-11 số, bắt đầu bằng 0 hoặc +84).';
+    return false;
+  }
+  
+  // Validate password
   if (formData.value.password !== formData.value.confirmPassword) {
     errorMessage.value = 'Mật khẩu xác nhận không khớp.';
     return false;

@@ -107,14 +107,14 @@ const handleMenuSelect = (key: string | number) => {
 
   if (keyStr === 'profile') {
     router.push({ name: 'Profile' });
+  } else if (keyStr === 'order-history') {
+    router.push({ name: 'OrderHistory' });
   } else if (keyStr === 'logout') {
     authStore.logout().then(() => {
       router.push({ name: 'Home' });
     });
-  } else if (keyStr === 'settings') {
-    console.log('Settings - TODO');
   } else if (keyStr === 'support') {
-    console.log('Support - TODO');
+    router.push({ name: 'Contact' });
   }
 };
 </script>

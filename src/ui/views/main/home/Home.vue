@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import PublicProductService from '@/core/services/api/public-product.service';
 import type { PublicProduct } from '@/core/services/api/public-product.service';
 import { useMessage } from 'naive-ui';
 import ContactService from '@/core/services/api/contact.service';
+import { Bolt } from '@vicons/tabler';
+
+const router = useRouter();
 
 const message = useMessage();
 const heroImage =
@@ -16,6 +20,13 @@ const loading = ref(false);
 const formatPrice = (price?: number) => {
   if (!price) return '0 đ';
   return new Intl.NumberFormat('vi-VN').format(price) + ' đ';
+};
+
+const calculateOriginalPrice = (salePrice: number, salePercentage: number): number => {
+  // Giá gốc = Giá sale / (1 - salePercentage/100)
+  const originalPrice = salePrice / (1 - salePercentage / 100);
+  // Làm tròn đến hàng nghìn
+  return Math.round(originalPrice / 1000) * 1000;
 };
 
 const loadBestSellers = async () => {
@@ -33,13 +44,14 @@ const loadBestSellers = async () => {
 
 const loadPromotionProducts = async () => {
   try {
-    // Load products with pagination, you can filter by tag/category if needed
+    // Load products with pagination
     const response = await PublicProductService.getProducts({
       page: 0,
-      size: 8,
+      size: 50, // Load nhiều hơn để filter
       sort: 'newest'
     });
-    promotionProducts.value = response.content;
+    // Chỉ hiển thị sản phẩm có isOnSale = true
+    promotionProducts.value = response.content.filter(product => product.isOnSale === true).slice(0, 8);
   } catch (error: any) {
     console.error('Error loading promotion products:', error);
     message.error('Lỗi khi tải sản phẩm khuyến mãi');
@@ -76,7 +88,7 @@ const newsFeatured = [
     date: "27/11/2025",
     desc: "Giỏ quà Tết Nhật bản chất lượng, thiết kế ấn tượng, phù hợp biếu tặng.",
     image:
-      "https://images.unsplash.com/photo-1523365280197-f21d6cfc1c67?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1578662996442-48f60103fc96?auto=format&fit=crop&w=1200&q=80",
   },
 ];
 
@@ -91,7 +103,7 @@ const newsList = [
   },
   {
     id: 5,
-    title: "Đua đơn Black Friday – Nhận quà cực đã cùng Nihon Market",
+    title: "Đua đơn Black Friday – Nhận quà cực đã cùng 14 Elevent",
     date: "23/11/2025",
     desc: "Sale bùng cháy, quà tặng hấp dẫn cho mọi đơn hàng.",
     image:
@@ -124,8 +136,38 @@ const closeApplyForm = () => {
   showApplyForm.value = false;
 };
 
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const validatePhone = (phone: string): boolean => {
+  if (!phone.trim()) return true; // Phone is optional
+  // Chấp nhận số điện thoại Việt Nam: 0xxxxxxxxx hoặc +84xxxxxxxxx hoặc 84xxxxxxxxx
+  const phoneRegex = /^(0|\+84|84)[1-9][0-9]{8,9}$/;
+  const cleanPhone = phone.replace(/[\s-]/g, '');
+  return phoneRegex.test(cleanPhone);
+};
+
 const submitApply = async () => {
   if (submittingApply.value) return;
+  
+  // Validate email
+  if (!applyForm.value.email.trim()) {
+    message.warning('Vui lòng nhập email.');
+    return;
+  }
+  if (!validateEmail(applyForm.value.email)) {
+    message.warning('Email không hợp lệ. Vui lòng nhập đúng định dạng email.');
+    return;
+  }
+  
+  // Validate phone (optional but if provided must be valid)
+  if (applyForm.value.phone.trim() && !validatePhone(applyForm.value.phone)) {
+    message.warning('Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam (10-11 số, bắt đầu bằng 0 hoặc +84).');
+    return;
+  }
+  
   submittingApply.value = true;
   try {
     await ContactService.sendContact({
@@ -157,7 +199,7 @@ const submitApply = async () => {
     <div class="absolute inset-0">
       <img
         :src="heroImage"
-        alt="Nihon Market Background"
+        alt="14 Elevent Background"
         class="w-full h-full object-cover opacity-80"
       />
       <div
@@ -183,16 +225,18 @@ const submitApply = async () => {
         </p>
 
         <div class="flex flex-wrap gap-4 pt-2">
-          <button
-            class="px-6 py-3 bg-[#b3000f] hover:bg-[#c00015] text-white font-semibold rounded-md shadow-lg shadow-red-900/30 transition-all duration-200"
+          <router-link
+            :to="{ name: 'Products' }"
+            class="px-6 py-3 bg-[#b3000f] hover:bg-[#c00015] text-white font-semibold rounded-md shadow-lg shadow-red-900/30 transition-all duration-200 inline-block"
           >
             KHÁM PHÁ NGAY
-          </button>
-          <button
-            class="px-6 py-3 bg-white text-black font-semibold rounded-md hover:bg-neutral-100 transition-all duration-200"
+          </router-link>
+          <router-link
+            :to="{ name: 'BestSellers' }"
+            class="px-6 py-3 bg-white text-black font-semibold rounded-md hover:bg-neutral-100 transition-all duration-200 inline-block"
           >
             SẢN PHẨM HOT
-          </button>
+          </router-link>
         </div>
       </div>
     </div>
@@ -220,8 +264,17 @@ const submitApply = async () => {
         <router-link :to="{ name: 'ProductDetail', params: { slug: item.slug } }" class="block flex-1">
           <div class="relative">
             <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="w-full h-56 object-cover" />
-            <div class="absolute top-3 left-3 bg-[#b3000f] text-white px-3 py-1 text-sm font-semibold rounded">
+            <!-- Badge góc trên bên trái -->
+            <div v-if="item.isOnSale" class="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-sm font-semibold rounded flex items-center gap-1">
+              <Bolt class="h-4 w-4" />
+              FLASH SALE
+            </div>
+            <div v-else class="absolute top-3 left-3 bg-[#b3000f] text-white px-3 py-1 text-sm font-semibold rounded">
               #{{ index + 1 }}
+            </div>
+            <!-- % Sale góc trên bên phải -->
+            <div v-if="item.isOnSale && item.salePercentage" class="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 text-sm font-bold rounded">
+              -{{ item.salePercentage }}%
             </div>
           </div>
 
@@ -232,8 +285,18 @@ const submitApply = async () => {
             </div>
           </div>
         </router-link>
-        <div class="px-5 pb-4 pt-0 flex items-center justify-between border-t border-neutral-100">
-          <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+        <div class="px-5 pb-4 pt-0 flex flex-col gap-1 border-t border-neutral-100">
+          <div v-if="item.isOnSale && item.salePercentage && item.minPrice" class="flex flex-col gap-1">
+            <!-- Giá gốc với đường gạch ngang -->
+            <span class="text-neutral-400 text-sm line-through">
+              {{ formatPrice(calculateOriginalPrice(item.minPrice, item.salePercentage)) }}
+            </span>
+            <!-- Giá sale -->
+            <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+          </div>
+          <div v-else>
+            <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -258,8 +321,17 @@ const submitApply = async () => {
         <router-link :to="{ name: 'ProductDetail', params: { slug: item.slug } }" class="block flex-1">
           <div class="relative">
             <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="w-full h-56 object-cover" />
-            <div class="absolute top-3 left-3 bg-black text-white px-3 py-1 text-sm font-semibold rounded">
+            <!-- Badge góc trên bên trái -->
+            <div v-if="item.isOnSale" class="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-sm font-semibold rounded flex items-center gap-1">
+              <Bolt class="h-4 w-4" />
+              FLASH SALE
+            </div>
+            <div v-else class="absolute top-3 left-3 bg-black text-white px-3 py-1 text-sm font-semibold rounded">
               NEW
+            </div>
+            <!-- % Sale góc trên bên phải -->
+            <div v-if="item.isOnSale && item.salePercentage" class="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 text-sm font-bold rounded">
+              -{{ item.salePercentage }}%
             </div>
           </div>
           <div class="p-5 flex flex-col gap-3">
@@ -272,8 +344,16 @@ const submitApply = async () => {
             </div>
           </div>
         </router-link>
-        <div class="px-5 pb-4 pt-0 flex items-center justify-between border-t border-neutral-100">
-          <div class="flex items-baseline gap-2">
+        <div class="px-5 pb-4 pt-0 flex flex-col gap-1 border-t border-neutral-100">
+          <div v-if="item.isOnSale && item.salePercentage && item.minPrice" class="flex flex-col gap-1">
+            <!-- Giá gốc với đường gạch ngang -->
+            <span class="text-neutral-400 text-sm line-through">
+              {{ formatPrice(calculateOriginalPrice(item.minPrice, item.salePercentage)) }}
+            </span>
+            <!-- Giá sale -->
+            <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+          </div>
+          <div v-else class="flex items-baseline gap-2">
             <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
           </div>
         </div>
@@ -295,10 +375,11 @@ const submitApply = async () => {
       </div>
 
       <div class="grid gap-6 lg:grid-cols-3 mb-10">
-        <div
+        <router-link
           v-for="item in newsFeatured"
           :key="item.id"
-          class="border border-neutral-200 shadow-sm hover:shadow-md transition-shadow duration-200 bg-white"
+          :to="{ name: 'ArticleDetail', params: { id: item.id } }"
+          class="border border-neutral-200 shadow-sm hover:shadow-md transition-shadow duration-200 bg-white cursor-pointer block"
         >
           <img :src="item.image" :alt="item.title" class="w-full h-52 object-cover" />
           <div class="p-5 space-y-2">
@@ -310,15 +391,16 @@ const submitApply = async () => {
               {{ item.desc }}
             </p>
           </div>
-        </div>
+        </router-link>
       </div>
 
       <div class="grid gap-6 lg:grid-cols-[1.5fr,1fr] items-start">
         <div class="space-y-4">
-          <div
+          <router-link
             v-for="item in newsList"
             :key="item.id"
-            class="flex gap-4 border border-neutral-200 p-4 hover:shadow-sm transition-shadow duration-200"
+            :to="{ name: 'ArticleDetail', params: { id: item.id } }"
+            class="flex gap-4 border border-neutral-200 p-4 hover:shadow-sm transition-shadow duration-200 cursor-pointer block"
           >
             <img :src="item.image" :alt="item.title" class="w-28 h-20 object-cover flex-shrink-0" />
             <div class="space-y-1">
@@ -328,7 +410,7 @@ const submitApply = async () => {
               </h4>
               <p class="text-sm text-neutral-600">{{ item.desc }}</p>
             </div>
-          </div>
+          </router-link>
         </div>
         <div class="border border-neutral-200 bg-[#f7f7f7] p-6 text-center flex flex-col items-center gap-3">
           <div class="text-2xl font-semibold text-red-600">14Elevent cần bạn</div>

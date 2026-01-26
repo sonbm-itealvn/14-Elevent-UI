@@ -246,7 +246,20 @@ onMounted(() => {
         <NFormItem label="Họ tên" path="fullName" :rule="{ required: true, message: 'Vui lòng nhập họ tên' }">
           <NInput v-model:value="formData.fullName" placeholder="Nhập họ tên" />
         </NFormItem>
-        <NFormItem label="Số điện thoại" path="phone">
+        <NFormItem 
+          label="Số điện thoại" 
+          path="phone"
+          :rule="{
+            validator: (rule, value) => {
+              if (!value || !value.trim()) return true; // Phone is optional
+              const phoneRegex = /^(0|\+84|84)[1-9][0-9]{8,9}$/;
+              const cleanPhone = value.replace(/[\s-]/g, '');
+              return phoneRegex.test(cleanPhone);
+            },
+            message: 'Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam (10-11 số, bắt đầu bằng 0 hoặc +84).',
+            trigger: ['input', 'blur']
+          }"
+        >
           <NInput v-model:value="formData.phone" placeholder="Nhập số điện thoại" />
         </NFormItem>
         <NFormItem label="Vai trò" path="role">

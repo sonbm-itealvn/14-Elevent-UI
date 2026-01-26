@@ -61,6 +61,10 @@ class ProductService {
     return response.data!;
   }
 
+  async updateSale(id: number, data: { isOnSale: boolean; salePercentage: number }): Promise<void> {
+    await this.httpService.put(`/api/admin/products/${id}/sale`, data);
+  }
+
   async toggleStatus(id: number, data: ToggleProductStatusRequest): Promise<void> {
     await this.httpService.put(`/api/admin/products/${id}/status`, data);
   }

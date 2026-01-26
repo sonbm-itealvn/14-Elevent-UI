@@ -57,7 +57,21 @@ const handleCancel = () => {
   userProfile.value = { ...originalProfile.value };
 };
 
+const validatePhone = (phone: string): boolean => {
+  if (!phone.trim()) return true; // Phone is optional
+  // Chấp nhận số điện thoại Việt Nam: 0xxxxxxxxx hoặc +84xxxxxxxxx hoặc 84xxxxxxxxx
+  const phoneRegex = /^(0|\+84|84)[1-9][0-9]{8,9}$/;
+  const cleanPhone = phone.replace(/[\s-]/g, '');
+  return phoneRegex.test(cleanPhone);
+};
+
 const handleSave = async () => {
+  // Validate phone
+  if (userProfile.value.phone.trim() && !validatePhone(userProfile.value.phone)) {
+    message.error('Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam (10-11 số, bắt đầu bằng 0 hoặc +84).');
+    return;
+  }
+  
   isLoading.value = true;
   try {
     const updateData: { fullName?: string; phone?: string } = {};

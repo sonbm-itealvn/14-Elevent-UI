@@ -56,6 +56,27 @@ const MainRoutes: RouteRecordRaw = {
             path: "/cart",
             name: "Cart",
             component: () => import("@/ui/views/main/cart/Cart.vue"),
+        },
+        {
+            path: "articles/:id",
+            name: "ArticleDetail",
+            component: () => import("@/ui/views/main/articles/ArticleDetail.vue"),
+        },
+        {
+            path: "/order-history",
+            name: "OrderHistory",
+            component: () => import("@/ui/views/main/order-history/OrderHistory.vue"),
+            meta: {
+                requiresAuth: true,
+            },
+        },
+        {
+            path: "/order-history/:id",
+            name: "OrderDetail",
+            component: () => import("@/ui/views/main/order-history/OrderDetail.vue"),
+            meta: {
+                requiresAuth: true,
+            },
         }
     ],
 };
