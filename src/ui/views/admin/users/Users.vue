@@ -13,6 +13,7 @@ import {
   NPopconfirm,
   useMessage,
   NIcon,
+  NPagination,
 } from 'naive-ui';
 import { Plus, Pencil, Trash } from '@vicons/tabler';
 import UserService from '@/core/services/api/user.service';
@@ -26,7 +27,6 @@ const pagination = ref({
   page: 1,
   pageSize: 10,
   total: 0,
-  showSizePicker: true,
   pageSizes: [10, 20, 50, 100],
 });
 
@@ -232,13 +232,24 @@ onMounted(() => {
       :columns="columns"
       :data="users"
       :loading="loading"
-      :pagination="pagination"
+      :pagination="false"
       remote
-      @update:page="(page) => { pagination.page = page; loadUsers(); }"
-      @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadUsers(); }"
       striped
       bordered
     />
+
+    <!-- Pagination riêng để hiển thị số trang -->
+    <div v-if="!loading && users.length > 0" class="mt-4 flex justify-end">
+      <NPagination
+        v-model:page="pagination.page"
+        :page-size="pagination.pageSize"
+        :item-count="pagination.total"
+        :page-sizes="pagination.pageSizes"
+        show-size-picker
+        @update:page="(page) => { pagination.page = page; loadUsers(); }"
+        @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadUsers(); }"
+      />
+    </div>
 
     <NModal v-model:show="showModal" :title="modalTitle" preset="dialog" style="width: 600px">
       <NForm ref="formRef" :model="formData" label-placement="left" label-width="120">
