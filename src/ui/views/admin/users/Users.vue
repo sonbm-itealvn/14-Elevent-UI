@@ -191,12 +191,11 @@ const handleSave = async () => {
 
 const handleDelete = async (userId: number) => {
   try {
-    // Real API call
-    await UserService.toggleActive(userId, { active: false });
-    message.success('Vô hiệu hóa người dùng thành công');
+    await UserService.deleteUser(userId);
+    message.success('Xóa người dùng thành công');
     await loadUsers();
   } catch (error: any) {
-    message.error(error.response?.data?.message || 'Lỗi khi vô hiệu hóa người dùng');
+    message.error(error.response?.data?.message || 'Lỗi khi xóa người dùng');
   }
 };
 

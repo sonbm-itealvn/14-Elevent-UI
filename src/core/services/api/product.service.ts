@@ -69,6 +69,10 @@ class ProductService {
     await this.httpService.put(`/api/admin/products/${id}/status`, data);
   }
 
+  async deleteProduct(id: number): Promise<void> {
+    await this.httpService.delete(`/api/admin/products/${id}`);
+  }
+
   async checkSlug(slug: string, excludeId?: number): Promise<ProductSlugCheckResponse> {
     const params: any = { slug };
     if (excludeId) {

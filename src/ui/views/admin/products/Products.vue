@@ -513,12 +513,11 @@ const handleSave = async () => {
 
 const handleDelete = async (productId: number) => {
   try {
-    // Real API call
-    await ProductService.toggleStatus(productId, { status: 'INACTIVE' });
-    message.success('Vô hiệu hóa sản phẩm thành công');
+    await ProductService.deleteProduct(productId);
+    message.success('Xóa sản phẩm thành công');
     await loadProducts();
   } catch (error: any) {
-    message.error(error.response?.data?.message || 'Lỗi khi vô hiệu hóa sản phẩm');
+    message.error(error.response?.data?.message || 'Lỗi khi xóa sản phẩm');
   }
 };
 
