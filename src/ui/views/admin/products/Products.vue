@@ -554,13 +554,9 @@ const handleAddVariant = async () => {
     };
     pendingVariants.value.push(variantData);
     message.success('Đã thêm biến thể vào danh sách chờ lưu');
-    // Clear variant image for next variant before clearing form
-    if (variantImageFiles.value[currentSku]) {
-      delete variantImageFiles.value[currentSku];
-    }
-    if (variantImageUrls.value[currentSku]) {
-      delete variantImageUrls.value[currentSku];
-    }
+    // DON'T delete variant image files/URLs here - they need to be kept for upload when saving product
+    // The images will be uploaded in handleSave after variants are created
+    // Clear form for next variant
     variantForm.value = { sku: '', name: '', price: 0, stock: 0 };
     variantAttributes.value = [{ key: '', value: '' }];
     return;
@@ -871,6 +867,7 @@ const handleVariantImageChange = async ({ fileList }: { fileList: UploadFileInfo
   if (editingProduct.value) {
     const variant = editingProduct.value.variants?.find(v => v.sku === sku);
     if (variant) {
+      // Variant exists, upload immediately
       try {
         const uploadedUrl = await ProductService.uploadVariantImage(
           editingProduct.value.id,
@@ -885,9 +882,13 @@ const handleVariantImageChange = async ({ fileList }: { fileList: UploadFileInfo
         delete variantImageFiles.value[sku];
         delete variantImageUrls.value[sku];
       }
+    } else {
+      // Variant doesn't exist yet (new variant being created), create preview URL
+      // Image will be uploaded after variant is created in handleAddVariant
+      variantImageUrls.value[sku] = URL.createObjectURL(file);
     }
   } else {
-    // For new variant, we'll upload after variant is created
+    // For new product, we'll upload after variant is created
     // For now, create a preview URL
     variantImageUrls.value[sku] = URL.createObjectURL(file);
   }
