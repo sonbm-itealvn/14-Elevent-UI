@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NTag, NButton, NBadge, useMessage, NBreadcrumb, NBreadcrumbItem } from 'naive-ui';
+import { NButton, useMessage, NBreadcrumb, NBreadcrumbItem } from 'naive-ui';
 import PublicProductService, { type ProductDetail, type PublicProduct } from '@/core/services/api/public-product.service';
 import useCartStore from '@/ui/stores/cart.store';
 import { ShoppingCart } from '@vicons/tabler';
