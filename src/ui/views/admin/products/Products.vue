@@ -110,6 +110,17 @@ const pendingVariants = ref<Array<{
   imageUrl?: string;
 }>>([]);
 
+const getVariantName = (variant: { attributes?: Record<string, any>; name?: string; sku?: string } = {}): string => {
+  const attrName = variant.attributes?.name;
+  if (typeof attrName === 'string' && attrName.trim()) {
+    return attrName.trim();
+  }
+  if (variant.name && String(variant.name).trim()) {
+    return String(variant.name).trim();
+  }
+  return variant.sku || '';
+};
+
 const addAttributeRow = () => {
   variantAttributes.value.push({ key: '', value: '' });
 };
@@ -408,13 +419,17 @@ const handleSave = async () => {
     saving.value = true;
     let productId = editingProduct.value?.id;
 
-    const buildVariantAttributes = () => {
+    const buildVariantAttributes = (variantName?: string) => {
       const attrs: Record<string, string> = {};
       variantAttributes.value.forEach(({ key, value }) => {
         if (key?.trim() && value !== undefined && value !== '') {
           attrs[key.trim()] = value;
         }
       });
+      // Map trường "Tên biến thể" sang thuộc tính "name"
+      if (variantName && variantName.trim()) {
+        attrs['name'] = variantName.trim();
+      }
       return Object.keys(attrs).length ? attrs : undefined;
     };
 
@@ -462,7 +477,8 @@ const handleSave = async () => {
           price: variantForm.value.price,
           stock: variantForm.value.stock,
           name: variantForm.value.name,
-          attributes: buildVariantAttributes(),
+          // Đưa tên biến thể vào trong attributes với key "name"
+          attributes: buildVariantAttributes(variantForm.value.name),
         });
       }
 
@@ -544,6 +560,10 @@ const handleAddVariant = async () => {
       attrs[key.trim()] = value;
     }
   });
+  // Map trường "Tên biến thể" sang thuộc tính "name"
+  if (variantForm.value.name && variantForm.value.name.trim()) {
+    attrs['name'] = variantForm.value.name.trim();
+  }
   
   if (!editingProduct.value) {
     // Tạo sản phẩm mới - lưu vào pendingVariants
@@ -638,7 +658,7 @@ const handleEditVariant = (variant: ProductVariant) => {
   editingVariant.value = { ...variant };
   editVariantForm.value = {
     sku: variant.sku,
-    name: variant.name || '',
+    name: (variant.attributes?.name as string) || variant.name || '',
     price: variant.price,
     stock: variant.stock,
   };
@@ -673,6 +693,10 @@ const handleSaveEditVariant = async () => {
         attrs[key.trim()] = value;
       }
     });
+    // Map trường "Tên biến thể" sang thuộc tính "name" trong attributes khi chỉnh sửa
+    if (editVariantForm.value.name && editVariantForm.value.name.trim()) {
+      attrs['name'] = editVariantForm.value.name.trim();
+    }
     const newAttributes = Object.keys(attrs).length > 0 ? attrs : undefined;
     
     // So sánh và chỉ lấy các trường đã thay đổi
@@ -955,9 +979,19 @@ onMounted(() => {
           <NDataTable
             :columns="[
               { title: 'SKU', key: 'sku' },
+              { title: 'Tên', key: 'name', render: (row) => getVariantName(row) || '-' },
               { title: 'Giá', key: 'price', render: (row) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.price) },
               { title: 'Tồn kho', key: 'stock' },
-              { title: 'Thuộc tính', key: 'attributes', render: (row) => row.attributes ? Object.values(row.attributes).join(' · ') : '-' },
+              { 
+                title: 'Thuộc tính', 
+                key: 'attributes', 
+                render: (row) => {
+                  if (!row.attributes) return '-';
+                  const entries = Object.entries(row.attributes).filter(([k]) => k !== 'name');
+                  if (!entries.length) return '-';
+                  return entries.map(([k, v]) => `${k}: ${v}`).join(' · ');
+                }
+              },
             ]"
             :data="viewingProduct.variants"
             size="small"
@@ -1208,7 +1242,7 @@ onMounted(() => {
                 size="small"
                 :columns="[
                   { title: 'SKU', key: 'sku', width: 150 },
-                  { title: 'Tên', key: 'name', render: (row) => row.name || '-', width: 150 },
+                  { title: 'Tên', key: 'name', render: (row) => getVariantName(row) || '-', width: 150 },
                   { title: 'Giá', key: 'price', render: (row) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.price), width: 120 },
                   { title: 'Tồn kho', key: 'stock', width: 100 },
                   { title: 'Thuộc tính', key: 'attributes', render: (row) => row.attributes ? Object.entries(row.attributes).map(([k, v]) => `${k}: ${v}`).join(', ') : '-', ellipsis: { tooltip: true } },
@@ -1238,7 +1272,12 @@ onMounted(() => {
               <NDataTable
                 :columns="[
                   { title: 'SKU', key: 'sku', width: 150 },
-                  { title: 'Tên', key: 'name', width: 150 },
+                  { 
+                    title: 'Tên', 
+                    key: 'name', 
+                    width: 150,
+                    render: (row) => getVariantName(row) || '-' 
+                  },
                   { title: 'Giá', key: 'price', render: (row) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.price), width: 120 },
                   { title: 'Tồn kho', key: 'stock', width: 100 },
                   { 

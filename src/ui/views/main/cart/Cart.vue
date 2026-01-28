@@ -608,13 +608,25 @@ const handleCheckout = async () => {
       `Đặt hàng thành công! Mã đơn hàng: ${result.orderCode}`
     );
     
-    // Reset cart store và reload để đảm bảo giỏ hàng được làm mới
-    cartStore.reset();
-    await cartStore.loadCart();
+    // Sau khi đặt hàng thành công:
+    // - Nếu user đã đăng nhập: gọi DELETE /api/cart để xóa giỏ hàng user trên server
+    // - Nếu chưa đăng nhập (guest): KHÔNG xóa giỏ hàng, chỉ reload lại từ backend
+    if (authStore.isAuthenticated) {
+      await cartStore.clearCart();
+    } else {
+      await cartStore.loadCart();
+    }
+
     showCheckoutModal.value = false;
     
-    // Redirect to order success page or home
-    router.push({ name: "Home" });
+    // Redirect to order success page với orderCode và orderId
+    router.push({ 
+      name: "OrderSuccess", 
+      query: { 
+        orderCode: result.orderCode,
+        orderId: result.orderId.toString()
+      } 
+    });
   } catch (error: any) {
     console.error("Error during checkout:", error);
     const errorMsg =

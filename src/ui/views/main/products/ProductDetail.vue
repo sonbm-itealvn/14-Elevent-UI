@@ -20,6 +20,17 @@ const selectedImageSource = ref<'product' | 'variant' | null>(null); // Track wh
 const relatedProducts = ref<PublicProduct[]>([]);
 const loadingRelated = ref(false);
 
+type VariantType = NonNullable<ProductDetail['variants']>[number];
+
+const getVariantName = (variant?: VariantType) => {
+  if (!variant) return '';
+  const attrName = variant.attributes?.name;
+  if (typeof attrName === 'string' && attrName.trim()) {
+    return attrName.trim();
+  }
+  return variant.sku || '';
+};
+
 const priceRange = computed(() => {
   if (!product.value?.variants || product.value.variants.length === 0) return null;
   const prices = product.value.variants.map(v => v.price);
@@ -283,8 +294,8 @@ watch(
               </div>
             </div>
             <div v-if="selectedVariant" class="text-xs text-neutral-600 mb-1">
-              <span>Biến thể:</span>
-              <span class="font-semibold ml-1">{{ selectedVariant.sku }}</span>
+              <!-- <span>Biến thể:</span>
+              <span class="font-semibold ml-1">{{ getVariantName(selectedVariant) }}</span> -->
               <span v-if="selectedVariant.stock > 0" class="ml-2 text-green-600">
                 (Còn {{ selectedVariant.stock }} sản phẩm)
               </span>
@@ -325,7 +336,7 @@ watch(
                   />
                   <div class="flex flex-col gap-0.5 flex-1 min-w-0">
                     <span class="text-xs font-semibold line-clamp-1">
-                      {{ variant.sku }}
+                      {{ getVariantName(variant) }}
                     </span>
                     <div class="flex items-center gap-1.5 flex-wrap">
                       <!-- Giá gạch ngang (giá gốc) khi có sale -->
