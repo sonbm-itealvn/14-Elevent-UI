@@ -547,7 +547,6 @@ const handleAddVariant = async () => {
   
   if (!editingProduct.value) {
     // Tạo sản phẩm mới - lưu vào pendingVariants
-    const currentSku = variantForm.value.sku;
     const variantData = {
       ...variantForm.value,
       attributes: Object.keys(attrs).length ? attrs : undefined,
