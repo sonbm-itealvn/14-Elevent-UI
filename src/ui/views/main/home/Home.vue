@@ -362,7 +362,7 @@ const submitApply = async () => {
           </div>
           <p class="text-neutral-500 text-sm">Cập nhật ưu đãi, bài viết, tin nổi bật</p>
         </div>
-        <a class="text-red-600 font-semibold text-sm hover:underline cursor-pointer">Xem tất cả</a>
+        <!-- <a class="text-red-600 font-semibold text-sm hover:underline cursor-pointer">Xem tất cả</a> -->
       </div>
 
       <div class="grid gap-6 lg:grid-cols-3 mb-10">
@@ -393,14 +393,14 @@ const submitApply = async () => {
             :href="`https://www.youtube.com/watch?v=${item.videoId}`"
             target="_blank"
             rel="noopener noreferrer"
-            class="flex gap-4 border border-neutral-200 p-4 hover:shadow-sm transition-shadow duration-200 cursor-pointer block"
+            class="flex gap-4 border border-neutral-200 p-4 hover:shadow-sm transition-shadow duration-200 cursor-pointer block group"
           >
             <img
               :src="item.thumbnailUrl"
               :alt="item.title"
               class="w-28 h-20 object-cover flex-shrink-0"
             />
-            <div class="space-y-1">
+            <div class="space-y-1 flex-1">
               <div class="text-xs font-semibold text-red-600">
                 {{ item.publishedAt }}
               </div>
@@ -410,6 +410,11 @@ const submitApply = async () => {
               <p class="text-sm text-neutral-600 line-clamp-2">
                 {{ item.description }}
               </p>
+            </div>
+            <div class="flex items-center flex-shrink-0">
+              <span class="text-red-600 font-semibold text-sm group-hover:text-red-700 transition-colors duration-200 whitespace-nowrap">
+                Xem ngay →
+              </span>
             </div>
           </a>
         </div>
