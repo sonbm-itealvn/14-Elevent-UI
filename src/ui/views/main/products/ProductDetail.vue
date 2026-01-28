@@ -238,7 +238,6 @@ watch(
               <div class="flex items-center gap-1">
                 <span class="text-[#ee4d2d] font-semibold">5.0</span>
                 <span class="text-amber-400">★ ★ ★ ★ ★</span>
-                <span class="text-neutral-400">(giả lập)</span>
               </div>
               <span class="h-4 w-px bg-neutral-300"></span>
               <div class="flex items-center gap-1">
