@@ -19,7 +19,6 @@ const cartStore = useCartStore();
 const router = useRouter();
 const theme = computed(() => themeStore.getTheme);
 const isLight = computed(() => theme.value === 'light');
-const handleThemeToggle = () => themeStore.setTheme();
 const showDropdown = ref(false);
 const props = defineProps<{
   items?: Header[];
