@@ -264,55 +264,95 @@ watch(
             <div class="text-sm text-neutral-500 flex items-center gap-2">
               <span>Đánh giá</span>
               <span class="text-amber-500">★ ★ ★ ★ ★</span>
-              <span>(giả lập)</span>
             </div>
           </div>
 
           <!-- Variants -->
           <div v-if="product.variants?.length" class="space-y-3">
-            <div class="font-semibold text-neutral-900">Chọn biến thể</div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="flex items-center justify-between">
+              <div class="font-semibold text-neutral-900">Chọn biến thể</div>
+              <span class="text-xs text-neutral-500">{{ product.variants.length }} biến thể</span>
+            </div>
+            <!-- Variant grid with improved layout -->
+            <div 
+              class="grid gap-3 overflow-x-auto pb-2 variant-grid"
+              :class="[
+                product.variants.length > 4 
+                  ? 'grid-cols-[repeat(auto-fill,minmax(160px,1fr))]' 
+                  : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
+              ]"
+            >
               <button
                 v-for="variant in product.variants"
                 :key="variant.id"
                 @click="handleSelectVariant(variant.id)"
+                :disabled="variant.stock === 0"
                 :class="[
-                  'border rounded-lg p-3 text-left transition-all relative overflow-hidden',
+                  'variant-card border rounded-xl p-3 text-left transition-all relative overflow-hidden group',
+                  'flex flex-col',
                   selectedVariantId === variant.id
-                    ? 'border-[#b3000f] bg-[#fff5f5] shadow-sm'
-                    : 'border-neutral-200 hover:border-neutral-300 hover:shadow-sm'
+                    ? 'border-[#b3000f] bg-[#fff5f5] shadow-md ring-2 ring-[#b3000f]/20'
+                    : variant.stock === 0
+                    ? 'border-neutral-200 bg-neutral-50 opacity-60 cursor-not-allowed'
+                    : 'border-neutral-200 hover:border-[#b3000f] hover:shadow-lg bg-white'
                 ]"
               >
-                <!-- Variant image thumbnail if available - scale nhỏ lại -->
-                <div v-if="variant.imageUrl" class="mb-2">
+                <!-- Variant image with better aspect ratio -->
+                <div v-if="variant.imageUrl" class="mb-3 relative rounded-lg overflow-hidden bg-neutral-100 aspect-[4/3]">
                   <img
                     :src="variant.imageUrl"
-                    class="w-full h-16 rounded object-cover"
+                    class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     :alt="`Variant ${variant.sku} image`"
+                    loading="lazy"
                   />
-                </div>
-                <div class="font-semibold text-neutral-900 text-sm truncate">{{ variant.sku }}</div>
-                <div v-if="variant.attributes" class="text-xs text-neutral-500 mt-1">
-                  <div v-for="(value, key) in variant.attributes" :key="key" class="truncate">
-                    <span class="font-medium">{{ key }}:</span> {{ value }}
+                  <!-- Selected checkmark overlay -->
+                  <div
+                    v-if="selectedVariantId === variant.id"
+                    class="absolute top-2 right-2 w-6 h-6 bg-[#b3000f] rounded-full flex items-center justify-center shadow-lg z-10"
+                  >
+                    <span class="text-white text-xs font-bold">✓</span>
+                  </div>
+                  <!-- Out of stock overlay -->
+                  <div
+                    v-if="variant.stock === 0"
+                    class="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center z-10"
+                  >
+                    <span class="text-white text-xs font-semibold bg-red-600 px-2.5 py-1 rounded-full">Hết hàng</span>
                   </div>
                 </div>
-                <div class="flex items-center justify-between mt-2">
-                  <span class="text-sm font-semibold text-[#b3000f]">
-                    {{ variant.price.toLocaleString('vi-VN') }}₫
-                  </span>
-                  <n-badge 
-                    :value="variant.stock > 0 ? variant.stock : 'Hết hàng'" 
-                    :max="99" 
-                    :type="variant.stock > 0 ? 'success' : 'error'" 
-                  />
+                <!-- Placeholder if no image -->
+                <div v-else class="mb-3 rounded-lg bg-neutral-100 aspect-[4/3] flex items-center justify-center">
+                  <span class="text-neutral-400 text-xs">Không có ảnh</span>
                 </div>
-                <!-- Selected indicator -->
-                <div
-                  v-if="selectedVariantId === variant.id"
-                  class="absolute top-2 right-2 w-5 h-5 bg-[#b3000f] rounded-full flex items-center justify-center"
-                >
-                  <span class="text-white text-xs">✓</span>
+                
+                <!-- Variant info -->
+                <div class="flex-1 flex flex-col gap-1.5">
+                  <div class="font-semibold text-neutral-900 text-sm leading-tight line-clamp-2 min-h-[2.5rem]">
+                    {{ variant.sku }}
+                  </div>
+                  <div v-if="variant.attributes" class="text-xs text-neutral-500 space-y-0.5">
+                    <div v-for="(value, key) in variant.attributes" :key="key" class="truncate">
+                      <span class="font-medium text-neutral-600">{{ key }}:</span> 
+                      <span>{{ value }}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Price and stock -->
+                <div class="mt-2 pt-2 border-t border-neutral-100">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-bold text-[#b3000f] leading-tight">
+                      {{ variant.price.toLocaleString('vi-VN') }}₫
+                    </span>
+                    <n-badge 
+                      v-if="variant.stock > 0"
+                      :value="variant.stock" 
+                      :max="99" 
+                      type="success"
+                      :show-zero="false"
+                      size="small"
+                    />
+                  </div>
                 </div>
               </button>
             </div>
@@ -436,4 +476,52 @@ watch(
     </div>
   </section>
 </template>
+
+<style scoped>
+/* Custom scrollbar for variant grid */
+.variant-grid {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.variant-grid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.variant-grid::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.variant-grid::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.variant-grid::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Variant card styles */
+.variant-card {
+  min-width: 160px;
+}
+
+.variant-card:disabled {
+  pointer-events: none;
+}
+
+/* Smooth transitions */
+.variant-card img {
+  will-change: transform;
+}
+
+/* Better focus states for accessibility */
+.variant-card:focus-visible {
+  outline: 2px solid #b3000f;
+  outline-offset: 2px;
+}
+</style>
 

@@ -26,7 +26,7 @@ const contactInfo = [
     icon: Mail,
     title: 'Email',
     jpTitle: 'メール',
-    content: 'contact@nihonmarket.vn',
+    content: '14elevent@gmail.com',
     subContent: 'support@nihonmarket.vn',
   },
   {
