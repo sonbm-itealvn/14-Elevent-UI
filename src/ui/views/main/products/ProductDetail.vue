@@ -98,6 +98,13 @@ const formatPrice = (price?: number) => {
   return new Intl.NumberFormat('vi-VN').format(price) + ' đ';
 };
 
+const calculateOriginalPrice = (salePrice: number, salePercentage: number): number => {
+  // Giá gốc = Giá sale / (1 - salePercentage/100)
+  const originalPrice = salePrice / (1 - salePercentage / 100);
+  // Làm tròn đến hàng nghìn
+  return Math.round(originalPrice / 1000) * 1000;
+};
+
 const handleSelectVariant = (id: number) => {
   selectedVariantId.value = id;
   // Update main image when variant is selected
@@ -250,8 +257,18 @@ watch(
           <!-- Price block -->
           <div class="bg-[#fff5f1] border border-[#ffe0d2] rounded-md px-4 py-3 flex items-end gap-4">
             <div class="flex flex-col gap-1">
-              <div v-if="priceRange && displayedPrice === null" class="text-sm text-neutral-400 line-through">
-                {{ priceRange.max.toLocaleString('vi-VN') }}₫
+              <!-- Giá gạch ngang (giá gốc) khi có sale -->
+              <div 
+                v-if="product.isOnSale && product.salePercentage && displayedPrice !== null"
+                class="text-sm text-neutral-400 line-through"
+              >
+                {{ calculateOriginalPrice(displayedPrice, product.salePercentage).toLocaleString('vi-VN') }}₫
+              </div>
+              <div 
+                v-else-if="product.isOnSale && product.salePercentage && priceRange"
+                class="text-sm text-neutral-400 line-through"
+              >
+                {{ calculateOriginalPrice(priceRange.max, product.salePercentage).toLocaleString('vi-VN') }}₫
               </div>
               <div class="text-3xl font-semibold text-[#ee4d2d]">
                 <template v-if="displayedPrice !== null">
@@ -310,9 +327,19 @@ watch(
                     <span class="text-xs font-semibold line-clamp-1">
                       {{ variant.sku }}
                     </span>
-                    <span class="text-[11px] text-neutral-500 line-clamp-1">
-                      {{ variant.price.toLocaleString('vi-VN') }}₫
-                    </span>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <!-- Giá gạch ngang (giá gốc) khi có sale -->
+                      <span 
+                        v-if="product.isOnSale && product.salePercentage"
+                        class="text-[10px] text-neutral-400 line-through"
+                      >
+                        {{ calculateOriginalPrice(variant.price, product.salePercentage).toLocaleString('vi-VN') }}₫
+                      </span>
+                      <!-- Giá sale -->
+                      <span class="text-[11px] text-neutral-500 line-clamp-1">
+                        {{ variant.price.toLocaleString('vi-VN') }}₫
+                      </span>
+                    </div>
                   </div>
                 </button>
               </div>
