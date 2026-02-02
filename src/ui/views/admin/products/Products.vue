@@ -19,6 +19,7 @@ import {
   NUpload,
   NImage,
   NTag,
+  NPagination,
   type UploadFileInfo,
 } from 'naive-ui';
 import { Plus, Pencil, Trash, Photo as ImageIcon, Eye } from '@vicons/tabler';
@@ -939,13 +940,25 @@ onMounted(() => {
       :columns="columns"
       :data="products"
       :loading="loading"
-      :pagination="pagination"
+      :pagination="false"
       :row-class-name="(row: Product) => row.status === 'INACTIVE' ? 'inactive-row' : ''"
-      @update:page="(page) => { pagination.page = page; loadProducts(); }"
-      @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadProducts(); }"
+      remote
       striped
       bordered
     />
+
+    <!-- Pagination riêng để hiển thị số trang -->
+    <div v-if="!loading && pagination.total > 0" class="mt-4 flex justify-end">
+      <NPagination
+        v-model:page="pagination.page"
+        :page-size="pagination.pageSize"
+        :item-count="pagination.total"
+        :page-sizes="pagination.pageSizes"
+        show-size-picker
+        @update:page="(page) => { pagination.page = page; loadProducts(); }"
+        @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadProducts(); }"
+      />
+    </div>
 
     <!-- View Detail Modal -->
     <NModal v-model:show="showViewModal" :title="viewingProduct?.name || 'Chi tiết sản phẩm'" preset="dialog" style="width: 900px">
@@ -1065,7 +1078,12 @@ onMounted(() => {
               <NSelect
                 v-model:value="formData.categoryId"
                 :options="categories.map(c => ({ label: c.name, value: c.id }))"
-                placeholder="Chọn danh mục"
+                placeholder="Chọn danh mục hoặc gõ để tìm kiếm"
+                filterable
+                clearable
+                :filter="(pattern, option) => {
+                  return option.label.toLowerCase().includes(pattern.toLowerCase());
+                }"
               />
             </NFormItem>
             <NFormItem label="Thương hiệu" path="brand">

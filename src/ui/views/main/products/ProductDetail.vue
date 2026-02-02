@@ -170,8 +170,8 @@ watch(
 </script>
 
 <template>
-  <section class="bg-white py-10 px-4 md:px-8 lg:px-12" v-if="product">
-    <div class="max-w-6xl mx-auto">
+  <section class="bg-white py-10 px-4 md:px-8 lg:px-12 overflow-x-hidden" v-if="product">
+    <div class="max-w-6xl mx-auto w-full">
       <div class="mb-3">
         <n-breadcrumb separator=">">
           <n-breadcrumb-item class="cursor-pointer" @click="router.push({ name: 'Home' })">Trang chủ</n-breadcrumb-item>
@@ -243,13 +243,13 @@ watch(
         </div>
 
         <!-- Info (Shopee-like layout) -->
-        <div class="space-y-4">
+        <div class="space-y-4 min-w-0">
           <!-- Title + basic info -->
-          <div class="space-y-2">
+          <div class="space-y-2 min-w-0">
             <div class="flex items-center gap-2 text-xs text-[#ee4d2d] font-semibold uppercase">
               <span class="px-2 py-0.5 bg-[#fff0e9] rounded-sm">Yêu thích+</span>
             </div>
-            <h1 class="text-2xl md:text-3xl font-semibold text-neutral-900 leading-snug">
+            <h1 class="product-name text-2xl md:text-3xl font-semibold text-neutral-900 leading-snug break-words">
               {{ product.name }}
             </h1>
             <div class="flex items-center gap-4 text-sm text-neutral-500">
@@ -572,6 +572,15 @@ watch(
 .variant-card:focus-visible {
   outline: 2px solid #b3000f;
   outline-offset: 2px;
+}
+
+/* Product name - prevent overflow on mobile */
+.product-name {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+  hyphens: auto;
 }
 </style>
 

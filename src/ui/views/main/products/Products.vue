@@ -6,7 +6,7 @@ import PublicProductService from '@/core/services/api/public-product.service';
 import type { PublicProduct } from '@/core/services/api/public-product.service';
 import CategoryService from '@/core/services/api/category.service';
 import type { CategoryTreeResponse } from '@/domain/models/category.model';
-import { useMessage } from 'naive-ui';
+import { useMessage, NPagination } from 'naive-ui';
 
 const message = useMessage();
 const route = useRoute();
@@ -16,9 +16,10 @@ const categories = ref<CategoryTreeResponse[]>([]);
 const loading = ref(false);
 const loadingCategories = ref(false);
 const pagination = ref({
-  page: 0,
-  size: 12,
+  page: 1,
+  pageSize: 12,
   total: 0,
+  pageSizes: [12, 24, 48, 96],
 });
 
 const searchQuery = ref('');
@@ -72,7 +73,7 @@ const handleFilterToggle = () => {
 };
 
 const applyFilters = () => {
-  pagination.value.page = 0;
+  pagination.value.page = 1;
   loadProducts();
   showFilters.value = false; // Đóng filter panel sau khi áp dụng
 };
@@ -86,8 +87,8 @@ const loadProducts = async () => {
   try {
     loading.value = true;
     const params: any = {
-      page: pagination.value.page,
-      size: pagination.value.size,
+      page: pagination.value.page - 1, // Backend expects 0-based page
+      size: pagination.value.pageSize,
     };
     
     if (searchQuery.value) {
@@ -117,7 +118,7 @@ const clearFilters = () => {
   searchQuery.value = '';
   selectedCategory.value = null;
   selectedBrand.value = null;
-  pagination.value.page = 0;
+  pagination.value.page = 1;
   loadProducts();
 };
 
@@ -134,7 +135,7 @@ watch(searchQuery, () => {
   }
   // Chỉ gọi API sau khi user ngừng gõ 500ms
   searchTimeout = setTimeout(() => {
-    pagination.value.page = 0;
+    pagination.value.page = 1;
     loadProducts();
     searchTimeout = null;
   }, 500);
@@ -455,6 +456,19 @@ onMounted(() => {
             Xóa tất cả bộ lọc
           </button>
         </div>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="!loading && pagination.total > 0" class="mt-10 flex justify-center">
+        <NPagination
+          v-model:page="pagination.page"
+          :page-size="pagination.pageSize"
+          :item-count="pagination.total"
+          :page-sizes="pagination.pageSizes"
+          show-size-picker
+          @update:page="(page) => { pagination.page = page; loadProducts(); }"
+          @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadProducts(); }"
+        />
       </div>
     </div>
   </section>
