@@ -1082,7 +1082,8 @@ onMounted(() => {
                 filterable
                 clearable
                 :filter="(pattern, option) => {
-                  return option.label.toLowerCase().includes(pattern.toLowerCase());
+                  const label = typeof option.label === 'string' ? option.label : '';
+                  return label.toLowerCase().includes(pattern.toLowerCase());
                 }"
               />
             </NFormItem>
