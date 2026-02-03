@@ -49,7 +49,7 @@ const loadPromotionProducts = async () => {
     // Load products with pagination
     const response = await PublicProductService.getProducts({
       page: 0,
-      size: 50, // Load nhiều hơn để filter
+      size: 100, // Load nhiều hơn để filter sản phẩm đang sale
       sort: 'newest'
     });
     // Chỉ hiển thị sản phẩm có isOnSale = true
