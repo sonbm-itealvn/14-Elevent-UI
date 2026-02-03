@@ -26,6 +26,7 @@ const searchQuery = ref('');
 const selectedCategory = ref<string | null>(null);
 const selectedBrand = ref<string | null>(null);
 const showFilters = ref(false);
+const isSearchMode = ref(false); // Track if we're using search API
 
 const formatPrice = (price?: number) => {
   if (!price) return '0 đ';
@@ -86,6 +87,25 @@ const loadProducts = async () => {
   
   try {
     loading.value = true;
+    
+    // If only search query (no other filters), use search API
+    const hasOnlySearch = searchQuery.value.trim() && 
+                         !selectedCategory.value && 
+                         !selectedBrand.value;
+    
+    if (hasOnlySearch) {
+      // Use search API
+      isSearchMode.value = true;
+      const searchResults = await PublicProductService.searchProducts(searchQuery.value.trim());
+      allProducts.value = searchResults;
+      pagination.value.total = searchResults.length;
+      loading.value = false;
+      return;
+    }
+    
+    isSearchMode.value = false;
+    
+    // Build params for regular getProducts
     const params: any = {
       page: pagination.value.page - 1, // Backend expects 0-based page
       size: pagination.value.pageSize,
@@ -118,6 +138,7 @@ const clearFilters = () => {
   searchQuery.value = '';
   selectedCategory.value = null;
   selectedBrand.value = null;
+  isSearchMode.value = false;
   pagination.value.page = 1;
   loadProducts();
 };
@@ -459,7 +480,7 @@ onMounted(() => {
       </div>
 
       <!-- Pagination -->
-      <div v-if="!loading && pagination.total > 0" class="mt-10 flex justify-center">
+      <div v-if="!loading && pagination.total > 0 && !isSearchMode" class="mt-10 flex justify-center">
         <NPagination
           v-model:page="pagination.page"
           :page-size="pagination.pageSize"
@@ -469,6 +490,10 @@ onMounted(() => {
           @update:page="(page) => { pagination.page = page; loadProducts(); }"
           @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadProducts(); }"
         />
+      </div>
+      <!-- Search results info (no pagination for search) -->
+      <div v-if="!loading && isSearchMode && allProducts.length > 0" class="mt-10 text-center text-sm text-neutral-600">
+        Tìm thấy {{ allProducts.length }} kết quả cho "{{ searchQuery }}"
       </div>
     </div>
   </section>

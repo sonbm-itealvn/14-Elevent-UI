@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, h, computed } from 'vue';
+import { ref, onMounted, h, computed, watch } from 'vue';
 import {
   NDataTable,
   NButton,
@@ -22,7 +22,7 @@ import {
   NPagination,
   type UploadFileInfo,
 } from 'naive-ui';
-import { Plus, Pencil, Trash, Photo as ImageIcon, Eye } from '@vicons/tabler';
+import { Plus, Pencil, Trash, Photo as ImageIcon, Eye, Search, X, Filter } from '@vicons/tabler';
 import ProductService from '@/core/services/api/product.service';
 import CategoryService from '@/core/services/api/category.service';
 import type { Product, CreateProductRequest, UpdateProductRequest, ProductVariant, UpdateVariantRequest } from '@/domain/models/product.model';
@@ -43,6 +43,15 @@ const pagination = ref({
   showSizePicker: true,
   pageSizes: [10, 20, 50, 100],
 });
+
+// Filter states
+const searchKeyword = ref('');
+const selectedCategory = ref<number | null>(null);
+const selectedBrand = ref<string | null>(null);
+const selectedOrigin = ref<string | null>(null);
+const selectedStatus = ref<string | null>(null);
+const showFilters = ref(false);
+const isSearchMode = ref(false); // Track if we're using search API
 
 const showModal = ref(false);
 const showViewModal = ref(false);
@@ -228,15 +237,62 @@ const columns = [
   },
 ];
 
-const loadProducts = async () => {
+const loadProducts = async (resetPage: boolean = false) => {
   try {
     loading.value = true;
     
-    // Real API call
-    const response = await ProductService.getProducts({
+    // Reset page if needed (when applying filters)
+    if (resetPage) {
+      pagination.value.page = 1;
+    }
+    
+    // If only search keyword (no other filters), use search API
+    const hasOnlySearch = searchKeyword.value.trim() && 
+                         !selectedCategory.value && 
+                         !selectedBrand.value && 
+                         !selectedOrigin.value && 
+                         !selectedStatus.value;
+    
+    if (hasOnlySearch) {
+      // Use search API
+      isSearchMode.value = true;
+      const searchResults = await ProductService.searchProducts(searchKeyword.value.trim());
+      products.value = searchResults;
+      pagination.value.total = searchResults.length;
+      loading.value = false;
+      return;
+    }
+    
+    isSearchMode.value = false;
+    
+    // Build filter params for regular getProducts
+    const params: any = {
       page: pagination.value.page - 1,
       size: pagination.value.pageSize,
-    });
+    };
+    
+    if (searchKeyword.value.trim()) {
+      params.keyword = searchKeyword.value.trim();
+    }
+    
+    if (selectedCategory.value) {
+      params.categoryId = selectedCategory.value;
+    }
+    
+    if (selectedBrand.value) {
+      params.brand = selectedBrand.value;
+    }
+    
+    if (selectedOrigin.value) {
+      params.origin = selectedOrigin.value;
+    }
+    
+    if (selectedStatus.value) {
+      params.status = selectedStatus.value;
+    }
+    
+    // Real API call
+    const response = await ProductService.getProducts(params);
     products.value = response.content;
     pagination.value.total = response.totalElements;
     loading.value = false;
@@ -245,6 +301,25 @@ const loadProducts = async () => {
     loading.value = false;
   }
 };
+
+const clearFilters = () => {
+  searchKeyword.value = '';
+  selectedCategory.value = null;
+  selectedBrand.value = null;
+  selectedOrigin.value = null;
+  selectedStatus.value = null;
+  isSearchMode.value = false;
+  pagination.value.page = 1;
+  loadProducts();
+};
+
+const hasActiveFilters = computed(() => {
+  return searchKeyword.value.trim() || 
+         selectedCategory.value !== null || 
+         selectedBrand.value !== null || 
+         selectedOrigin.value !== null || 
+         selectedStatus.value !== null;
+});
 
 const loadCategories = async () => {
   try {
@@ -271,7 +346,7 @@ const handleCreate = () => {
   editingProduct.value = null;
   formData.value = {
     name: '',
-    slug: '',
+    slug: '', // Backend will auto-generate, but keep for type compatibility
     description: '',
     categoryId: 0,
     brand: '',
@@ -381,15 +456,6 @@ const handleSaveSale = async () => {
   }
 };
 
-const generateSlug = (name: string) => {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-};
-
 // Format number with comma separator
 const formatPrice = (value: number | null | undefined): string => {
   if (value === null || value === undefined || value === 0 || isNaN(value)) return '';
@@ -406,12 +472,6 @@ const parsePrice = (value: string): string => {
 const handlePriceInput = (value: string) => {
   const parsed = parsePrice(value);
   variantForm.value.price = parsed ? Number(parsed) : 0;
-};
-
-const handleNameChange = () => {
-  if (!editingProduct.value && formData.value.name) {
-    formData.value.slug = generateSlug(formData.value.name);
-  }
 };
 
 const handleSave = async () => {
@@ -439,11 +499,10 @@ const handleSave = async () => {
       await ProductService.updateProduct(editingProduct.value.id, formData.value as UpdateProductRequest);
       message.success('Cập nhật sản phẩm thành công');
     } else {
-      // Create product first with imageUrl = null
+      // Create product - backend will auto-generate slug
       const productData: CreateProductRequest = {
         categoryId: formData.value.categoryId,
         name: formData.value.name,
-        slug: formData.value.slug,
         description: formData.value.description,
         brand: formData.value.brand,
         origin: formData.value.origin,
@@ -452,6 +511,7 @@ const handleSave = async () => {
         expiryInfo: formData.value.expiryInfo,
         imageUrl: formData.value.imageUrl,
         status: formData.value.active ? 'ACTIVE' : 'INACTIVE',
+        // slug is optional and will be auto-generated by backend
       };
       // Don't include imageUrl - create with null
 
@@ -532,6 +592,7 @@ const handleDelete = async (productId: number) => {
   try {
     await ProductService.deleteProduct(productId);
     message.success('Xóa sản phẩm thành công');
+    pagination.value.page = 1;
     await loadProducts();
   } catch (error: any) {
     message.error(error.response?.data?.message || 'Lỗi khi xóa sản phẩm');
@@ -918,6 +979,29 @@ const handleVariantImageChange = async ({ fileList }: { fileList: UploadFileInfo
   }
 };
 
+// Watch search keyword for real-time search
+let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+watch(searchKeyword, () => {
+  // Clear previous timeout
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  
+  // If search is empty, reset search mode and load products with current filters
+  if (!searchKeyword.value.trim()) {
+    isSearchMode.value = false;
+    pagination.value.page = 1;
+    loadProducts(true);
+    return;
+  }
+  
+  // Debounce: only search after user stops typing for 500ms
+  searchTimeout = setTimeout(() => {
+    loadProducts(true);
+    searchTimeout = null;
+  }, 500);
+});
+
 onMounted(() => {
   loadProducts();
   loadCategories();
@@ -936,6 +1020,149 @@ onMounted(() => {
       </NButton>
     </div>
 
+    <!-- Search and Filter Section -->
+    <div class="mb-4 space-y-3">
+      <!-- Search Bar -->
+      <div class="flex flex-col md:flex-row gap-3">
+        <div class="flex-1 relative">
+          <NInput
+            v-model:value="searchKeyword"
+            placeholder="Gõ để tìm kiếm theo tên, slug, SKU... (tự động tìm)"
+            clearable
+          >
+            <template #prefix>
+              <NIcon><Search /></NIcon>
+            </template>
+          </NInput>
+        </div>
+        <NButton @click="showFilters = !showFilters" :type="showFilters ? 'primary' : 'default'">
+          <template #icon>
+            <NIcon><Filter /></NIcon>
+          </template>
+          Bộ lọc
+        </NButton>
+        <NButton v-if="hasActiveFilters" @click="clearFilters" secondary>
+          <template #icon>
+            <NIcon><X /></NIcon>
+          </template>
+          Xóa bộ lọc
+        </NButton>
+      </div>
+
+      <!-- Filter Panel -->
+      <div v-show="showFilters" class="p-4 bg-neutral-50 border border-neutral-200 rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Category Filter -->
+          <div>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2">Danh mục</label>
+            <NSelect
+              v-model:value="selectedCategory"
+              :options="categories.map(c => ({ label: c.name, value: c.id }))"
+              placeholder="Tất cả danh mục"
+              clearable
+              filterable
+              :filter="(pattern, option) => {
+                const label = typeof option.label === 'string' ? option.label : '';
+                return label.toLowerCase().includes(pattern.toLowerCase());
+              }"
+            />
+          </div>
+
+          <!-- Brand Filter -->
+          <div>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2">Thương hiệu</label>
+            <NInput
+              v-model:value="selectedBrand"
+              placeholder="Nhập thương hiệu"
+              clearable
+            />
+          </div>
+
+          <!-- Origin Filter -->
+          <div>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2">Xuất xứ</label>
+            <NInput
+              v-model:value="selectedOrigin"
+              placeholder="Nhập xuất xứ"
+              clearable
+            />
+          </div>
+
+          <!-- Status Filter -->
+          <div>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2">Trạng thái</label>
+            <NSelect
+              v-model:value="selectedStatus"
+              :options="[
+                { label: 'Đang bán', value: 'ACTIVE' },
+                { label: 'Ngừng bán', value: 'INACTIVE' }
+              ]"
+              placeholder="Tất cả trạng thái"
+              clearable
+            />
+          </div>
+        </div>
+
+        <!-- Apply Filters Button -->
+        <div class="mt-4 flex justify-end gap-2">
+          <NButton @click="clearFilters" secondary>
+            <template #icon>
+              <NIcon><X /></NIcon>
+            </template>
+            Xóa bộ lọc
+          </NButton>
+          <NButton type="primary" @click="loadProducts(true)">
+            Áp dụng bộ lọc
+          </NButton>
+        </div>
+      </div>
+
+      <!-- Active Filters Display -->
+      <div v-if="hasActiveFilters" class="flex flex-wrap gap-2 items-center">
+        <span class="text-sm text-neutral-600 font-semibold">Bộ lọc đang áp dụng:</span>
+        <NTag
+          v-if="searchKeyword.trim()"
+          closable
+          @close="searchKeyword = ''; loadProducts(true)"
+          type="info"
+        >
+          Tìm: "{{ searchKeyword }}"
+        </NTag>
+        <NTag
+          v-if="selectedCategory"
+          closable
+          @close="selectedCategory = null; loadProducts(true)"
+          type="success"
+        >
+          Danh mục: {{ categories.find(c => c.id === selectedCategory)?.name || selectedCategory }}
+        </NTag>
+        <NTag
+          v-if="selectedBrand"
+          closable
+          @close="selectedBrand = null; loadProducts(true)"
+          type="warning"
+        >
+          Thương hiệu: {{ selectedBrand }}
+        </NTag>
+        <NTag
+          v-if="selectedOrigin"
+          closable
+          @close="selectedOrigin = null; loadProducts(true)"
+          type="error"
+        >
+          Xuất xứ: {{ selectedOrigin }}
+        </NTag>
+        <NTag
+          v-if="selectedStatus"
+          closable
+          @close="selectedStatus = null; loadProducts(true)"
+          type="default"
+        >
+          Trạng thái: {{ selectedStatus === 'ACTIVE' ? 'Đang bán' : 'Ngừng bán' }}
+        </NTag>
+      </div>
+    </div>
+
     <NDataTable
       :columns="columns"
       :data="products"
@@ -947,18 +1174,22 @@ onMounted(() => {
       bordered
     />
 
-    <!-- Pagination riêng để hiển thị số trang -->
-    <div v-if="!loading && pagination.total > 0" class="mt-4 flex justify-end">
-      <NPagination
-        v-model:page="pagination.page"
-        :page-size="pagination.pageSize"
-        :item-count="pagination.total"
-        :page-sizes="pagination.pageSizes"
-        show-size-picker
-        @update:page="(page) => { pagination.page = page; loadProducts(); }"
-        @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadProducts(); }"
-      />
-    </div>
+      <!-- Pagination riêng để hiển thị số trang -->
+      <div v-if="!loading && pagination.total > 0 && !isSearchMode" class="mt-4 flex justify-end">
+        <NPagination
+          v-model:page="pagination.page"
+          :page-size="pagination.pageSize"
+          :item-count="pagination.total"
+          :page-sizes="pagination.pageSizes"
+          show-size-picker
+          @update:page="(page) => { pagination.page = page; loadProducts(); }"
+          @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadProducts(); }"
+        />
+      </div>
+      <!-- Search results info (no pagination for search) -->
+      <div v-if="!loading && isSearchMode && products.length > 0" class="mt-4 flex justify-end text-sm text-neutral-600">
+        Tìm thấy {{ products.length }} kết quả cho "{{ searchKeyword }}"
+      </div>
 
     <!-- View Detail Modal -->
     <NModal v-model:show="showViewModal" :title="viewingProduct?.name || 'Chi tiết sản phẩm'" preset="dialog" style="width: 900px">
@@ -1066,10 +1297,19 @@ onMounted(() => {
         <NTabPane name="basic" tab="Thông tin cơ bản">
           <NForm ref="formRef" :model="formData" label-placement="left" label-width="120">
             <NFormItem label="Tên sản phẩm" path="name" :rule="{ required: true, message: 'Vui lòng nhập tên sản phẩm' }">
-              <NInput v-model:value="formData.name" placeholder="Nhập tên sản phẩm" @update:value="handleNameChange" />
+              <NInput v-model:value="formData.name" placeholder="Nhập tên sản phẩm" />
             </NFormItem>
-            <NFormItem label="Slug" path="slug" :rule="{ required: true, message: 'Vui lòng nhập slug' }">
+            <NFormItem v-if="editingProduct" label="Slug" path="slug" :rule="{ required: true, message: 'Vui lòng nhập slug' }">
               <NInput v-model:value="formData.slug" placeholder="Nhập slug" />
+              <template #feedback>
+                <span class="text-xs text-neutral-500">Slug sẽ được tự động tạo từ tên sản phẩm khi tạo mới</span>
+              </template>
+            </NFormItem>
+            <NFormItem v-else label="Slug">
+              <NInput value="(Tự động tạo từ tên sản phẩm)" disabled />
+              <template #feedback>
+                <span class="text-xs text-neutral-500">Slug sẽ được tự động tạo từ tên sản phẩm</span>
+              </template>
             </NFormItem>
             <NFormItem label="Mô tả" path="description">
               <NInput v-model:value="formData.description" type="textarea" placeholder="Nhập mô tả" :rows="4" />

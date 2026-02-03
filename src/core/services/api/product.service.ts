@@ -38,6 +38,14 @@ class ProductService {
     return response;
   }
 
+  async searchProducts(query: string): Promise<Product[]> {
+    const response = await this.httpService.get<Product[]>(
+      "/api/products/search",
+      { q: query }
+    );
+    return response.data || [];
+  }
+
   async getProductById(id: number): Promise<Product> {
     const response = await this.httpService.get<Product>(
       `/api/admin/products/${id}`
