@@ -417,11 +417,11 @@ onMounted(() => {
             :to="{ name: 'ProductDetail', params: { slug: item.slug } }"
             class="block flex-1"
           >
-            <div class="relative overflow-hidden">
+            <div class="relative overflow-hidden bg-neutral-50 flex items-center justify-center" style="height: 200px;">
               <img
                 :src="item.thumbnail || 'https://via.placeholder.com/400'"
                 :alt="item.name"
-                class="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
+                class="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300"
               />
               <!-- Badge góc trên bên trái -->
               <div v-if="item.isOnSale" class="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-sm font-semibold rounded flex items-center gap-1">
@@ -441,7 +441,7 @@ onMounted(() => {
                 {{ item.brand }}
               </div>
               <div>
-                <h3 class="text-lg font-semibold text-neutral-900 mb-1">{{ item.name }}</h3>
+                <h3 class="text-lg font-semibold text-neutral-900 mb-1 line-clamp-2">{{ item.name }}</h3>
                 <p v-if="item.origin" class="text-sm text-neutral-500">{{ item.origin }}</p>
               </div>
             </div>

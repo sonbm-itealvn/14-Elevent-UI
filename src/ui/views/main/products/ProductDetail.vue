@@ -456,11 +456,11 @@ watch(
           :to="{ name: 'ProductDetail', params: { slug: item.slug } }"
           class="bg-white shadow-md hover:shadow-lg transition-shadow duration-200 border border-neutral-200 flex flex-col rounded-md overflow-hidden group"
         >
-          <div class="relative">
+          <div class="relative bg-neutral-50 flex items-center justify-center" style="height: 200px;">
             <img
               :src="item.thumbnail || 'https://via.placeholder.com/400'"
               :alt="item.name"
-              class="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-200"
+              class="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-200"
             />
             <div v-if="item.isOnSale && item.salePercentage" class="absolute top-3 left-3 bg-red-600 text-white px-2 py-1 text-xs font-semibold rounded">
               -{{ item.salePercentage }}%
