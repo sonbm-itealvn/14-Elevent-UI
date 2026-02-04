@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NTag, NButton, NBadge, useMessage, NBreadcrumb, NBreadcrumbItem } from 'naive-ui';
+import { NButton, useMessage, NBreadcrumb, NBreadcrumbItem } from 'naive-ui';
 import PublicProductService, { type ProductDetail, type PublicProduct } from '@/core/services/api/public-product.service';
 import useCartStore from '@/ui/stores/cart.store';
 import { ShoppingCart } from '@vicons/tabler';
@@ -19,6 +19,17 @@ const mainImage = ref<string | null>(null);
 const selectedImageSource = ref<'product' | 'variant' | null>(null); // Track which image source is selected
 const relatedProducts = ref<PublicProduct[]>([]);
 const loadingRelated = ref(false);
+
+type VariantType = NonNullable<ProductDetail['variants']>[number];
+
+const getVariantName = (variant?: VariantType) => {
+  if (!variant) return '';
+  const attrName = variant.attributes?.name;
+  if (typeof attrName === 'string' && attrName.trim()) {
+    return attrName.trim();
+  }
+  return variant.sku || '';
+};
 
 const priceRange = computed(() => {
   if (!product.value?.variants || product.value.variants.length === 0) return null;
@@ -98,6 +109,13 @@ const formatPrice = (price?: number) => {
   return new Intl.NumberFormat('vi-VN').format(price) + ' đ';
 };
 
+const calculateOriginalPrice = (salePrice: number, salePercentage: number): number => {
+  // Giá gốc = Giá sale / (1 - salePercentage/100)
+  const originalPrice = salePrice / (1 - salePercentage / 100);
+  // Làm tròn đến hàng nghìn
+  return Math.round(originalPrice / 1000) * 1000;
+};
+
 const handleSelectVariant = (id: number) => {
   selectedVariantId.value = id;
   // Update main image when variant is selected
@@ -152,8 +170,8 @@ watch(
 </script>
 
 <template>
-  <section class="bg-white py-10 px-4 md:px-8 lg:px-12" v-if="product">
-    <div class="max-w-6xl mx-auto">
+  <section class="bg-white py-10 px-4 md:px-8 lg:px-12 overflow-x-hidden" v-if="product">
+    <div class="max-w-6xl mx-auto w-full">
       <div class="mb-3">
         <n-breadcrumb separator=">">
           <n-breadcrumb-item class="cursor-pointer" @click="router.push({ name: 'Home' })">Trang chủ</n-breadcrumb-item>
@@ -161,9 +179,9 @@ watch(
           <n-breadcrumb-item>{{ product.name }}</n-breadcrumb-item>
         </n-breadcrumb>
       </div>
-      <div class="grid gap-8 lg:grid-cols-[520px,1fr]">
-        <!-- Gallery -->
-        <div class="space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Gallery - Left Column -->
+        <div class="gallery-container space-y-4 w-full min-w-0">
           <div class="bg-neutral-50 border border-neutral-200 rounded-lg p-2 min-h-[400px] flex items-center justify-center">
             <img
               v-if="mainImage"
@@ -174,16 +192,16 @@ watch(
             <div v-else class="text-neutral-400 text-sm">Không có hình ảnh</div>
           </div>
           <!-- Thumbnail images: product image + variant images -->
-          <div class="flex gap-3 overflow-x-auto pb-1">
+          <div class="thumbnail-strip flex gap-3 overflow-x-auto pb-2 w-full">
             <!-- Product main image - luôn hiển thị và có thể chọn -->
             <img
               v-if="product.imageUrl"
               :src="product.imageUrl"
-              class="w-20 h-20 rounded border object-cover cursor-pointer transition-colors flex-shrink-0"
+              class="w-20 h-20 rounded border object-cover cursor-pointer transition-all flex-shrink-0"
               :class="[
                 selectedImageSource === 'product' && mainImage === product.imageUrl
-                  ? 'border-[#b3000f] ring-2 ring-[#b3000f]'
-                  : 'border-neutral-200 hover:border-[#b3000f]'
+                  ? 'border-[#b3000f] ring-2 ring-[#b3000f] scale-105'
+                  : 'border-neutral-200 hover:border-[#b3000f] hover:scale-105'
               ]"
               @click="handleSelectProductImage"
               alt="Product thumbnail"
@@ -194,15 +212,15 @@ watch(
               <img
                 v-if="variant.imageUrl"
                 :src="variant.imageUrl"
-                class="w-20 h-20 rounded border object-cover cursor-pointer transition-colors flex-shrink-0"
+                class="w-20 h-20 rounded border object-cover cursor-pointer transition-all flex-shrink-0"
                 :class="[
                   selectedImageSource === 'variant' && selectedVariantId === variant.id && mainImage === variant.imageUrl
-                    ? 'border-[#b3000f] ring-2 ring-[#b3000f]'
-                    : 'border-neutral-200 hover:border-[#b3000f]'
+                    ? 'border-[#b3000f] ring-2 ring-[#b3000f] scale-105'
+                    : 'border-neutral-200 hover:border-[#b3000f] hover:scale-105'
                 ]"
                 @click="handleSelectVariant(variant.id)"
                 :alt="`Variant ${variant.sku} thumbnail`"
-                :title="`Chọn ảnh biến thể ${variant.sku}`"
+                :title="`Chọn biến thể ${variant.sku}`"
               />
             </template>
             <!-- Fallback to images array if no imageUrl -->
@@ -211,11 +229,11 @@ watch(
                 v-for="img in product.images || []"
                 :key="img.id"
                 :src="img.imageUrl"
-                class="w-20 h-20 rounded border object-cover cursor-pointer transition-colors flex-shrink-0"
+                class="w-20 h-20 rounded border object-cover cursor-pointer transition-all flex-shrink-0"
                 :class="[
                   mainImage === img.imageUrl
-                    ? 'border-[#b3000f] ring-2 ring-[#b3000f]'
-                    : 'border-neutral-200 hover:border-[#b3000f]'
+                    ? 'border-[#b3000f] ring-2 ring-[#b3000f] scale-105'
+                    : 'border-neutral-200 hover:border-[#b3000f] hover:scale-105'
                 ]"
                 @click="setMainImage(img.imageUrl, 'product')"
                 alt="Product image thumbnail"
@@ -224,146 +242,169 @@ watch(
           </div>
         </div>
 
-        <!-- Info -->
-        <div class="space-y-4">
-          <div class="space-y-2">
-            <div class="flex items-center gap-3">
-              <n-tag type="warning" size="small" bordered round>Yêu thích</n-tag>
-              <n-tag type="error" size="small" round>HOT</n-tag>
+        <!-- Info (Shopee-like layout) -->
+        <div class="space-y-4 min-w-0">
+          <!-- Title + basic info -->
+          <div class="space-y-2 min-w-0">
+            <div class="flex items-center gap-2 text-xs text-[#ee4d2d] font-semibold uppercase">
+              <span class="px-2 py-0.5 bg-[#fff0e9] rounded-sm">Yêu thích+</span>
             </div>
-            <h1 class="text-2xl md:text-3xl font-bold text-neutral-900">{{ product.name }}</h1>
-            <p v-if="product.brand || product.origin" class="text-sm text-neutral-500">
-              <span v-if="product.brand">Thương hiệu: {{ product.brand }}</span>
-              <span v-if="product.brand && product.origin" class="mx-2">•</span>
-              <span v-if="product.origin">Xuất xứ: {{ product.origin }}</span>
-            </p>
-          </div>
-
-          <div class="bg-neutral-50 border border-neutral-200 rounded-lg p-4 space-y-2">
-            <div class="text-3xl font-semibold text-[#b3000f]">
-              <template v-if="displayedPrice !== null">
-                {{ displayedPrice.toLocaleString('vi-VN') }}₫
-              </template>
-              <template v-else-if="priceRange">
-                {{ priceRange.min.toLocaleString('vi-VN') }}₫ - {{ priceRange.max.toLocaleString('vi-VN') }}₫
-              </template>
-              <template v-else>
-                Liên hệ
-              </template>
-            </div>
-            <p class="text-sm text-neutral-600">
-              <span v-if="selectedVariant">
-                Giá của biến thể: <strong>{{ selectedVariant.sku }}</strong>
-                <span v-if="selectedVariant.stock > 0" class="ml-2 text-green-600">
-                  (Còn {{ selectedVariant.stock }} sản phẩm)
-                </span>
-                <span v-else class="ml-2 text-red-600">(Hết hàng)</span>
-              </span>
-              <span v-else>Giá theo biến thể; chọn biến thể để xem giá chính xác.</span>
-            </p>
-            <div class="text-sm text-neutral-500 flex items-center gap-2">
-              <span>Đánh giá</span>
-              <span class="text-amber-500">★ ★ ★ ★ ★</span>
-              <span>(giả lập)</span>
+            <h1 class="product-name text-2xl md:text-3xl font-semibold text-neutral-900 leading-snug break-words">
+              {{ product.name }}
+            </h1>
+            <div class="flex items-center gap-4 text-sm text-neutral-500">
+              <div class="flex items-center gap-1">
+                <span class="text-[#ee4d2d] font-semibold">5.0</span>
+                <span class="text-amber-400">★ ★ ★ ★ ★</span>
+              </div>
+              <span class="h-4 w-px bg-neutral-300"></span>
+              <div class="flex items-center gap-1">
+                <span class="font-semibold">Đã bán</span>
+                <span>1,2k+</span>
+              </div>
             </div>
           </div>
 
-          <!-- Variants -->
-          <div v-if="product.variants?.length" class="space-y-3">
-            <div class="font-semibold text-neutral-900">Chọn biến thể</div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                v-for="variant in product.variants"
-                :key="variant.id"
-                @click="handleSelectVariant(variant.id)"
-                :class="[
-                  'border rounded-lg p-3 text-left transition-all relative overflow-hidden',
-                  selectedVariantId === variant.id
-                    ? 'border-[#b3000f] bg-[#fff5f5] shadow-sm'
-                    : 'border-neutral-200 hover:border-neutral-300 hover:shadow-sm'
-                ]"
+          <!-- Price block -->
+          <div class="bg-[#fff5f1] border border-[#ffe0d2] rounded-md px-4 py-3 flex items-end gap-4">
+            <div class="flex flex-col gap-1">
+              <!-- Giá gạch ngang (giá gốc) khi có sale -->
+              <div 
+                v-if="product.isOnSale && product.salePercentage && displayedPrice !== null"
+                class="text-sm text-neutral-400 line-through"
               >
-                <!-- Variant image thumbnail if available - scale nhỏ lại -->
-                <div v-if="variant.imageUrl" class="mb-2">
+                {{ calculateOriginalPrice(displayedPrice, product.salePercentage).toLocaleString('vi-VN') }}₫
+              </div>
+              <div 
+                v-else-if="product.isOnSale && product.salePercentage && priceRange"
+                class="text-sm text-neutral-400 line-through"
+              >
+                {{ calculateOriginalPrice(priceRange.max, product.salePercentage).toLocaleString('vi-VN') }}₫
+              </div>
+              <div class="text-3xl font-semibold text-[#ee4d2d]">
+                <template v-if="displayedPrice !== null">
+                  {{ displayedPrice.toLocaleString('vi-VN') }}₫
+                </template>
+                <template v-else-if="priceRange">
+                  {{ priceRange.min.toLocaleString('vi-VN') }}₫ - {{ priceRange.max.toLocaleString('vi-VN') }}₫
+                </template>
+                <template v-else>
+                  Liên hệ
+                </template>
+              </div>
+            </div>
+            <div v-if="selectedVariant" class="text-xs text-neutral-600 mb-1">
+              <!-- <span>Biến thể:</span>
+              <span class="font-semibold ml-1">{{ getVariantName(selectedVariant) }}</span> -->
+              <span v-if="selectedVariant.stock > 0" class="ml-2 text-green-600">
+                (Còn {{ selectedVariant.stock }} sản phẩm)
+              </span>
+              <span v-else class="ml-2 text-red-600">(Hết hàng)</span>
+            </div>
+          </div>
+
+          <!-- Options & quantity (Shopee-style rows) -->
+          <div class="space-y-5 text-sm">
+            <!-- Variants row - bigger cards -->
+            <div
+              v-if="product.variants?.length"
+              class="flex items-start gap-4"
+            >
+              <div class="w-24 text-neutral-500 pt-2">Vị</div>
+              <div class="flex-1 flex flex-wrap gap-3 max-h-40 overflow-y-auto py-1">
+                <button
+                  v-for="variant in product.variants"
+                  :key="variant.id"
+                  type="button"
+                  @click="handleSelectVariant(variant.id)"
+                  :disabled="variant.stock === 0"
+                  class="variant-option inline-flex items-center gap-3 rounded-lg border px-3.5 py-2.5 text-left transition-all bg-white min-w-[190px]"
+                  :class="[
+                    selectedVariantId === variant.id
+                      ? 'border-[#ee4d2d] text-[#ee4d2d] shadow-sm bg-[#fff5f1]'
+                      : 'border-neutral-300 hover:border-[#ee4d2d] hover:text-[#ee4d2d]',
+                    variant.stock === 0 && selectedVariantId !== variant.id
+                      ? 'opacity-60 cursor-not-allowed'
+                      : ''
+                  ]"
+                >
                   <img
+                    v-if="variant.imageUrl"
                     :src="variant.imageUrl"
-                    class="w-full h-16 rounded object-cover"
+                    class="w-10 h-10 rounded object-cover flex-shrink-0"
                     :alt="`Variant ${variant.sku} image`"
                   />
-                </div>
-                <div class="font-semibold text-neutral-900 text-sm truncate">{{ variant.sku }}</div>
-                <div v-if="variant.attributes" class="text-xs text-neutral-500 mt-1">
-                  <div v-for="(value, key) in variant.attributes" :key="key" class="truncate">
-                    <span class="font-medium">{{ key }}:</span> {{ value }}
+                  <div class="flex flex-col gap-0.5 flex-1 min-w-0">
+                    <span class="text-xs font-semibold line-clamp-1">
+                      {{ getVariantName(variant) }}
+                    </span>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <!-- Giá gạch ngang (giá gốc) khi có sale -->
+                      <span 
+                        v-if="product.isOnSale && product.salePercentage"
+                        class="text-[10px] text-neutral-400 line-through"
+                      >
+                        {{ calculateOriginalPrice(variant.price, product.salePercentage).toLocaleString('vi-VN') }}₫
+                      </span>
+                      <!-- Giá sale -->
+                      <span class="text-[11px] text-neutral-500 line-clamp-1">
+                        {{ variant.price.toLocaleString('vi-VN') }}₫
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div class="flex items-center justify-between mt-2">
-                  <span class="text-sm font-semibold text-[#b3000f]">
-                    {{ variant.price.toLocaleString('vi-VN') }}₫
-                  </span>
-                  <n-badge 
-                    :value="variant.stock > 0 ? variant.stock : 'Hết hàng'" 
-                    :max="99" 
-                    :type="variant.stock > 0 ? 'success' : 'error'" 
-                  />
-                </div>
-                <!-- Selected indicator -->
-                <div
-                  v-if="selectedVariantId === variant.id"
-                  class="absolute top-2 right-2 w-5 h-5 bg-[#b3000f] rounded-full flex items-center justify-center"
-                >
-                  <span class="text-white text-xs">✓</span>
-                </div>
-              </button>
+                </button>
+              </div>
             </div>
-          </div>
 
-          <!-- Quantity + Add to cart -->
-          <div class="flex items-center gap-3 flex-wrap">
-            <div class="flex items-center border border-neutral-200 rounded-lg overflow-hidden">
-              <button
-                class="w-10 h-10 hover:bg-neutral-100"
-                @click="quantity = Math.max(1, quantity - 1)"
-              >-</button>
-              <div class="w-12 text-center font-semibold">{{ quantity }}</div>
-              <button
-                class="w-10 h-10 hover:bg-neutral-100"
-                @click="quantity = quantity + 1"
-              >+</button>
+            <!-- Quantity row -->
+            <div class="flex items-center gap-4">
+              <div class="w-24 text-neutral-500">Số lượng</div>
+              <div class="flex items-center gap-3 flex-wrap">
+                <div class="flex items-center border border-neutral-200 rounded-lg overflow-hidden">
+                  <button
+                    class="w-8 h-8 md:w-9 md:h-9 hover:bg-neutral-100"
+                    @click="quantity = Math.max(1, quantity - 1)"
+                  >-</button>
+                  <div class="w-10 md:w-12 text-center font-semibold">{{ quantity }}</div>
+                  <button
+                    class="w-8 h-8 md:w-9 md:h-9 hover:bg-neutral-100"
+                    @click="quantity = quantity + 1"
+                  >+</button>
+                </div>
+                <div v-if="selectedVariant" class="text-xs text-neutral-500">
+                  {{ selectedVariant.stock > 0 ? `Còn ${selectedVariant.stock} sản phẩm` : 'Hết hàng' }}
+                </div>
+              </div>
             </div>
-            <n-button
-              type="error"
-              strong
-              size="large"
-              class="!px-6 flex-1 sm:flex-none"
-              @click="handleAddToCart"
-              :loading="loading"
-              :disabled="!selectedVariant || selectedVariant.stock === 0"
-            >
-              <template #icon>
-                <ShoppingCart />
-              </template>
-              {{ selectedVariant && selectedVariant.stock === 0 ? 'Hết hàng' : 'Thêm vào giỏ' }}
-            </n-button>
-            <n-button
-              type="primary"
-              strong
-              size="large"
-              class="!px-6 flex-1 sm:flex-none"
-              ghost
-              :disabled="!selectedVariant || selectedVariant.stock === 0"
-              @click="handleAddToCart().then(() => router.push({ name: 'Cart' }))"
-            >
-              Mua ngay
-            </n-button>
-          </div>
 
-          <!-- Description -->
-          <div v-if="product.description" class="pt-2 border-t border-neutral-200">
-            <h3 class="font-semibold text-neutral-900 mb-2">Mô tả</h3>
-            <p class="text-neutral-700 leading-relaxed whitespace-pre-line">
-              {{ product.description }}
-            </p>
+            <!-- Actions -->
+            <div class="flex flex-wrap gap-3 pt-2">
+              <n-button
+                type="error"
+                strong
+                size="large"
+                class="!px-6 flex-1 sm:flex-none"
+                @click="handleAddToCart"
+                :loading="loading"
+                :disabled="!selectedVariant || selectedVariant.stock === 0"
+              >
+                <template #icon>
+                  <ShoppingCart />
+                </template>
+                {{ selectedVariant && selectedVariant.stock === 0 ? 'Hết hàng' : 'Thêm vào giỏ hàng' }}
+              </n-button>
+              <n-button
+                type="primary"
+                strong
+                size="large"
+                class="!px-6 flex-1 sm:flex-none"
+                ghost
+                :disabled="!selectedVariant || selectedVariant.stock === 0"
+                @click="handleAddToCart().then(() => router.push({ name: 'Cart' }))"
+              >
+                Mua ngay
+              </n-button>
+            </div>
           </div>
 
           <!-- Specs -->
@@ -376,6 +417,16 @@ watch(
           </div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- Description section below (full width) -->
+  <section v-if="product?.description" class="bg-white border-t border-neutral-200 py-8 px-4 md:px-8 lg:px-12">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="text-lg font-semibold text-neutral-900 mb-3">Mô tả sản phẩm</h2>
+      <p class="text-neutral-700 leading-relaxed whitespace-pre-line">
+        {{ product.description }}
+      </p>
     </div>
   </section>
 
@@ -405,11 +456,11 @@ watch(
           :to="{ name: 'ProductDetail', params: { slug: item.slug } }"
           class="bg-white shadow-md hover:shadow-lg transition-shadow duration-200 border border-neutral-200 flex flex-col rounded-md overflow-hidden group"
         >
-          <div class="relative">
+          <div class="relative bg-neutral-50 flex items-center justify-center" style="height: 200px;">
             <img
               :src="item.thumbnail || 'https://via.placeholder.com/400'"
               :alt="item.name"
-              class="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-200"
+              class="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-200"
             />
             <div v-if="item.isOnSale && item.salePercentage" class="absolute top-3 left-3 bg-red-600 text-white px-2 py-1 text-xs font-semibold rounded">
               -{{ item.salePercentage }}%
@@ -436,4 +487,100 @@ watch(
     </div>
   </section>
 </template>
+
+<style scoped>
+/* Gallery container - prevent overflow */
+.gallery-container {
+  overflow: hidden; /* Prevent children from overflowing */
+}
+
+/* Thumbnail strip with scrollbar */
+.thumbnail-strip {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0; /* Important for flex items to allow shrinking */
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  /* Ensure container doesn't expand beyond parent */
+  box-sizing: border-box;
+  /* Force horizontal scroll when content overflows */
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.thumbnail-strip::-webkit-scrollbar {
+  height: 6px;
+}
+
+.thumbnail-strip::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.thumbnail-strip::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.thumbnail-strip::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Custom scrollbar for variant grid */
+.variant-grid {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.variant-grid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.variant-grid::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.variant-grid::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.variant-grid::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Variant card styles */
+.variant-card {
+  min-width: 160px;
+}
+
+.variant-card:disabled {
+  pointer-events: none;
+}
+
+/* Smooth transitions */
+.variant-card img {
+  will-change: transform;
+}
+
+/* Better focus states for accessibility */
+.variant-card:focus-visible {
+  outline: 2px solid #b3000f;
+  outline-offset: 2px;
+}
+
+/* Product name - prevent overflow on mobile */
+.product-name {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+  hyphens: auto;
+}
+</style>
 

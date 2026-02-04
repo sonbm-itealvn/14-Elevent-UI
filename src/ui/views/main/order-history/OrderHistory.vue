@@ -39,7 +39,7 @@ const currentPage = computed({
 
 // Status options
 const statusOptions: SelectOption[] = [
-  { label: 'Tất cả', value: null },
+  { label: 'Tất cả', value: undefined },
   { label: 'Chờ xử lý', value: 'PENDING' },
   { label: 'Đã thanh toán', value: 'PAID' },
   { label: 'Đã xác nhận', value: 'CONFIRMED' },

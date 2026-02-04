@@ -693,7 +693,7 @@ onMounted(() => {
           <NInput
             v-model:value="trackingUrl"
             placeholder="Nhập URL theo dõi đơn hàng (bắt buộc)"
-            type="url"
+            type="text"
           />
           <template #feedback>
             <div class="text-xs text-gray-500 mt-1">

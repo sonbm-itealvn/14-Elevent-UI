@@ -58,80 +58,66 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-6">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">Dashboard</h1>
+  <div class="p-4 sm:p-6">
+    <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-6 text-gray-800">
+      Dashboard
+    </h1>
     
     <NSpin :show="loading">
       <div v-if="stats">
-        <NGrid :cols="4" :x-gap="12" :y-gap="12" class="mb-6">
-          <NGridItem>
-            <NCard>
-              <NStatistic 
-                label="Tổng doanh thu" 
-                :value="formatCurrency(stats.overall.totalRevenue)" 
-              />
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <NStatistic 
-                label="Tổng đơn hàng" 
-                :value="stats.overall.totalOrders" 
-              />
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <NStatistic 
-                label="Đơn hàng hoàn thành" 
-                :value="stats.overall.completedOrders" 
-              />
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <NStatistic 
-                label="Giá trị đơn hàng trung bình" 
-                :value="formatCurrency(stats.overall.averageOrderValue)" 
-              />
-            </NCard>
-          </NGridItem>
-        </NGrid>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+          <NCard>
+            <NStatistic 
+              label="Tổng doanh thu" 
+              :value="formatCurrency(stats.overall.totalRevenue)" 
+            />
+          </NCard>
+          <NCard>
+            <NStatistic 
+              label="Tổng đơn hàng" 
+              :value="stats.overall.totalOrders" 
+            />
+          </NCard>
+          <NCard>
+            <NStatistic 
+              label="Đơn hàng hoàn thành" 
+              :value="stats.overall.completedOrders" 
+            />
+          </NCard>
+          <NCard>
+            <NStatistic 
+              label="Giá trị đơn hàng trung bình" 
+              :value="formatCurrency(stats.overall.averageOrderValue)" 
+            />
+          </NCard>
+        </div>
 
-        <NGrid :cols="4" :x-gap="12" :y-gap="12" class="mb-6">
-          <NGridItem>
-            <NCard>
-              <NStatistic 
-                label="Doanh thu hôm nay" 
-                :value="formatCurrency(stats.revenue.todayRevenue)" 
-              />
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <NStatistic 
-                label="Doanh thu tuần này" 
-                :value="formatCurrency(stats.revenue.thisWeekRevenue)" 
-              />
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <NStatistic 
-                label="Doanh thu tháng này" 
-                :value="formatCurrency(stats.revenue.thisMonthRevenue)" 
-              />
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <NStatistic 
-                label="Đơn hàng hôm nay" 
-                :value="stats.orderCounts.todayOrders" 
-              />
-            </NCard>
-          </NGridItem>
-        </NGrid>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+          <NCard>
+            <NStatistic 
+              label="Doanh thu hôm nay" 
+              :value="formatCurrency(stats.revenue.todayRevenue)" 
+            />
+          </NCard>
+          <NCard>
+            <NStatistic 
+              label="Doanh thu tuần này" 
+              :value="formatCurrency(stats.revenue.thisWeekRevenue)" 
+            />
+          </NCard>
+          <NCard>
+            <NStatistic 
+              label="Doanh thu tháng này" 
+              :value="formatCurrency(stats.revenue.thisMonthRevenue)" 
+            />
+          </NCard>
+          <NCard>
+            <NStatistic 
+              label="Đơn hàng hôm nay" 
+              :value="stats.orderCounts.todayOrders" 
+            />
+          </NCard>
+        </div>
 
         <NCard title="Đơn hàng gần đây" class="mt-6">
           <NDataTable

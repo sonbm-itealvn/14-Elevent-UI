@@ -5,7 +5,7 @@ import { NLayoutHeader, NSpace, NDropdown, NButton, NBadge } from 'naive-ui';
 import Logo from '@/shared/components/logo/Logo.vue';
 import Button from '@/shared/components/button/Button.vue';
 import Avatar from '@/shared/components/avatar/Avatar.vue';
-import { Moon, Sun, Menu2, Search, ShoppingCart, User } from '@vicons/tabler';
+import { Menu2, Search, ShoppingCart, User } from '@vicons/tabler';
 import useThemeStore from '@/ui/stores/theme.store';
 import useAuthStore from '@/ui/stores/auth.store';
 import useCartStore from '@/ui/stores/cart.store';
@@ -19,7 +19,6 @@ const cartStore = useCartStore();
 const router = useRouter();
 const theme = computed(() => themeStore.getTheme);
 const isLight = computed(() => theme.value === 'light');
-const handleThemeToggle = () => themeStore.setTheme();
 const showDropdown = ref(false);
 const props = defineProps<{
   items?: Header[];
@@ -120,17 +119,6 @@ const dropdownOptions = [
             </template>
           </Button>
         </n-badge>
-        <Button
-          class="h-11 w-11 flex items-center justify-center rounded-full transition-colors duration-150"
-          :class="isLight
-            ? 'bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-800'
-            : 'bg-white/10 hover:bg-white/25 !border-none text-white'"
-          @click="handleThemeToggle"
-        >
-          <template #icon>
-            <component :is="theme === 'light' ? Moon : Sun" />
-          </template>
-        </Button>
         <!-- Show Avatar if authenticated, Login button if not -->
         <Avatar 
           v-if="authStore.isAuthenticated && authStore.user"

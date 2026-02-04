@@ -13,6 +13,7 @@ import {
   NPopconfirm,
   useMessage,
   NIcon,
+  NPagination,
 } from 'naive-ui';
 import { Plus, Pencil, Trash } from '@vicons/tabler';
 import UserService from '@/core/services/api/user.service';
@@ -26,7 +27,6 @@ const pagination = ref({
   page: 1,
   pageSize: 10,
   total: 0,
-  showSizePicker: true,
   pageSizes: [10, 20, 50, 100],
 });
 
@@ -129,7 +129,11 @@ const loadUsers = async () => {
       size: pagination.value.pageSize,
     });
     users.value = response.content;
-    pagination.value.total = response.totalElements;
+    // Cập nhật toàn bộ pagination object để đảm bảo reactivity
+    pagination.value = {
+      ...pagination.value,
+      total: response.totalElements,
+    };
     loading.value = false;
   } catch (error: any) {
     message.error(error.response?.data?.message || 'Lỗi khi tải danh sách người dùng');
@@ -187,12 +191,11 @@ const handleSave = async () => {
 
 const handleDelete = async (userId: number) => {
   try {
-    // Real API call
-    await UserService.toggleActive(userId, { active: false });
-    message.success('Vô hiệu hóa người dùng thành công');
+    await UserService.deleteUser(userId);
+    message.success('Xóa người dùng thành công');
     await loadUsers();
   } catch (error: any) {
-    message.error(error.response?.data?.message || 'Lỗi khi vô hiệu hóa người dùng');
+    message.error(error.response?.data?.message || 'Lỗi khi xóa người dùng');
   }
 };
 
@@ -228,12 +231,24 @@ onMounted(() => {
       :columns="columns"
       :data="users"
       :loading="loading"
-      :pagination="pagination"
-      @update:page="(page) => { pagination.page = page; loadUsers(); }"
-      @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadUsers(); }"
+      :pagination="false"
+      remote
       striped
       bordered
     />
+
+    <!-- Pagination riêng để hiển thị số trang -->
+    <div v-if="!loading && users.length > 0" class="mt-4 flex justify-end">
+      <NPagination
+        v-model:page="pagination.page"
+        :page-size="pagination.pageSize"
+        :item-count="pagination.total"
+        :page-sizes="pagination.pageSizes"
+        show-size-picker
+        @update:page="(page) => { pagination.page = page; loadUsers(); }"
+        @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadUsers(); }"
+      />
+    </div>
 
     <NModal v-model:show="showModal" :title="modalTitle" preset="dialog" style="width: 600px">
       <NForm ref="formRef" :model="formData" label-placement="left" label-width="120">
@@ -250,7 +265,7 @@ onMounted(() => {
           label="Số điện thoại" 
           path="phone"
           :rule="{
-            validator: (rule, value) => {
+            validator: (_rule, value) => {
               if (!value || !value.trim()) return true; // Phone is optional
               const phoneRegex = /^(0|\+84|84)[1-9][0-9]{8,9}$/;
               const cleanPhone = value.replace(/[\s-]/g, '');

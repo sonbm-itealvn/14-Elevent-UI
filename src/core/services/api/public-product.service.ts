@@ -29,6 +29,9 @@ export interface ProductDetail {
   description?: string;
   brand?: string;
   origin?: string;
+  // Thông tin sale (giống PublicProduct, dùng cho hiển thị giá)
+  isOnSale?: boolean;
+  salePercentage?: number;
   weight?: number;
   weightUnit?: string;
   expiryInfo?: string;

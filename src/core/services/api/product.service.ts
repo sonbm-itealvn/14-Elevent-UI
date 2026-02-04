@@ -38,6 +38,14 @@ class ProductService {
     return response;
   }
 
+  async searchProducts(query: string): Promise<Product[]> {
+    const response = await this.httpService.get<Product[]>(
+      "/api/products/search",
+      { q: query }
+    );
+    return response.data || [];
+  }
+
   async getProductById(id: number): Promise<Product> {
     const response = await this.httpService.get<Product>(
       `/api/admin/products/${id}`
@@ -67,6 +75,10 @@ class ProductService {
 
   async toggleStatus(id: number, data: ToggleProductStatusRequest): Promise<void> {
     await this.httpService.put(`/api/admin/products/${id}/status`, data);
+  }
+
+  async deleteProduct(id: number): Promise<void> {
+    await this.httpService.delete(`/api/admin/products/${id}`);
   }
 
   async checkSlug(slug: string, excludeId?: number): Promise<ProductSlugCheckResponse> {

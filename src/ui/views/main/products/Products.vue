@@ -6,7 +6,7 @@ import PublicProductService from '@/core/services/api/public-product.service';
 import type { PublicProduct } from '@/core/services/api/public-product.service';
 import CategoryService from '@/core/services/api/category.service';
 import type { CategoryTreeResponse } from '@/domain/models/category.model';
-import { useMessage } from 'naive-ui';
+import { useMessage, NPagination } from 'naive-ui';
 
 const message = useMessage();
 const route = useRoute();
@@ -16,15 +16,17 @@ const categories = ref<CategoryTreeResponse[]>([]);
 const loading = ref(false);
 const loadingCategories = ref(false);
 const pagination = ref({
-  page: 0,
-  size: 12,
+  page: 1,
+  pageSize: 12,
   total: 0,
+  pageSizes: [12, 24, 48, 96],
 });
 
 const searchQuery = ref('');
 const selectedCategory = ref<string | null>(null);
 const selectedBrand = ref<string | null>(null);
 const showFilters = ref(false);
+const isSearchMode = ref(false); // Track if we're using search API
 
 const formatPrice = (price?: number) => {
   if (!price) return '0 đ';
@@ -72,7 +74,7 @@ const handleFilterToggle = () => {
 };
 
 const applyFilters = () => {
-  pagination.value.page = 0;
+  pagination.value.page = 1;
   loadProducts();
   showFilters.value = false; // Đóng filter panel sau khi áp dụng
 };
@@ -85,9 +87,28 @@ const loadProducts = async () => {
   
   try {
     loading.value = true;
+    
+    // If only search query (no other filters), use search API
+    const hasOnlySearch = searchQuery.value.trim() && 
+                         !selectedCategory.value && 
+                         !selectedBrand.value;
+    
+    if (hasOnlySearch) {
+      // Use search API
+      isSearchMode.value = true;
+      const searchResults = await PublicProductService.searchProducts(searchQuery.value.trim());
+      allProducts.value = searchResults;
+      pagination.value.total = searchResults.length;
+      loading.value = false;
+      return;
+    }
+    
+    isSearchMode.value = false;
+    
+    // Build params for regular getProducts
     const params: any = {
-      page: pagination.value.page,
-      size: pagination.value.size,
+      page: pagination.value.page - 1, // Backend expects 0-based page
+      size: pagination.value.pageSize,
     };
     
     if (searchQuery.value) {
@@ -117,7 +138,8 @@ const clearFilters = () => {
   searchQuery.value = '';
   selectedCategory.value = null;
   selectedBrand.value = null;
-  pagination.value.page = 0;
+  isSearchMode.value = false;
+  pagination.value.page = 1;
   loadProducts();
 };
 
@@ -134,7 +156,7 @@ watch(searchQuery, () => {
   }
   // Chỉ gọi API sau khi user ngừng gõ 500ms
   searchTimeout = setTimeout(() => {
-    pagination.value.page = 0;
+    pagination.value.page = 1;
     loadProducts();
     searchTimeout = null;
   }, 500);
@@ -395,11 +417,11 @@ onMounted(() => {
             :to="{ name: 'ProductDetail', params: { slug: item.slug } }"
             class="block flex-1"
           >
-            <div class="relative overflow-hidden">
+            <div class="relative overflow-hidden bg-neutral-50 flex items-center justify-center" style="height: 200px;">
               <img
                 :src="item.thumbnail || 'https://via.placeholder.com/400'"
                 :alt="item.name"
-                class="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
+                class="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300"
               />
               <!-- Badge góc trên bên trái -->
               <div v-if="item.isOnSale" class="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-sm font-semibold rounded flex items-center gap-1">
@@ -419,7 +441,7 @@ onMounted(() => {
                 {{ item.brand }}
               </div>
               <div>
-                <h3 class="text-lg font-semibold text-neutral-900 mb-1">{{ item.name }}</h3>
+                <h3 class="text-lg font-semibold text-neutral-900 mb-1 line-clamp-2">{{ item.name }}</h3>
                 <p v-if="item.origin" class="text-sm text-neutral-500">{{ item.origin }}</p>
               </div>
             </div>
@@ -455,6 +477,23 @@ onMounted(() => {
             Xóa tất cả bộ lọc
           </button>
         </div>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="!loading && pagination.total > 0 && !isSearchMode" class="mt-10 flex justify-center">
+        <NPagination
+          v-model:page="pagination.page"
+          :page-size="pagination.pageSize"
+          :item-count="pagination.total"
+          :page-sizes="pagination.pageSizes"
+          show-size-picker
+          @update:page="(page) => { pagination.page = page; loadProducts(); }"
+          @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadProducts(); }"
+        />
+      </div>
+      <!-- Search results info (no pagination for search) -->
+      <div v-if="!loading && isSearchMode && allProducts.length > 0" class="mt-10 text-center text-sm text-neutral-600">
+        Tìm thấy {{ allProducts.length }} kết quả cho "{{ searchQuery }}"
       </div>
     </div>
   </section>

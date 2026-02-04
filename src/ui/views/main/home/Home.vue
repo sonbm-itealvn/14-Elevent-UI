@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import PublicProductService from '@/core/services/api/public-product.service';
 import type { PublicProduct } from '@/core/services/api/public-product.service';
 import { useMessage } from 'naive-ui';
 import ContactService from '@/core/services/api/contact.service';
+import YoutubeService, { type YoutubeVideo } from '@/core/services/api/youtube.service';
 import { Bolt } from '@vicons/tabler';
-
-const router = useRouter();
 
 const message = useMessage();
 const heroImage =
@@ -16,6 +14,10 @@ const heroImage =
 const bestSellers = ref<PublicProduct[]>([]);
 const promotionProducts = ref<PublicProduct[]>([]);
 const loading = ref(false);
+
+// YouTube latest videos
+const youtubeVideos = ref<YoutubeVideo[]>([]);
+const loadingYoutube = ref(false);
 
 const formatPrice = (price?: number) => {
   if (!price) return '0 đ';
@@ -47,7 +49,7 @@ const loadPromotionProducts = async () => {
     // Load products with pagination
     const response = await PublicProductService.getProducts({
       page: 0,
-      size: 50, // Load nhiều hơn để filter
+      size: 100, // Load nhiều hơn để filter sản phẩm đang sale
       sort: 'newest'
     });
     // Chỉ hiển thị sản phẩm có isOnSale = true
@@ -58,13 +60,27 @@ const loadPromotionProducts = async () => {
   }
 };
 
+const loadYoutubeLatest = async () => {
+  try {
+    loadingYoutube.value = true;
+    const videos = await YoutubeService.getLatest();
+    // Lấy 3 video mới nhất (phòng khi API trả nhiều hơn)
+    youtubeVideos.value = Array.isArray(videos) ? videos.slice(0, 3) : [];
+  } catch (error: any) {
+    console.error('Error loading latest YouTube videos:', error);
+    message.error('Lỗi khi tải video mới nhất từ YouTube');
+  } finally {
+    loadingYoutube.value = false;
+  }
+};
 
 onMounted(() => {
   loadBestSellers();
   loadPromotionProducts();
+  loadYoutubeLatest();
 });
 
-// Mock news data (can be replaced with API later)
+// Mock news data (giữ lại cho block phía trên)
 const newsFeatured = [
   {
     id: 1,
@@ -92,32 +108,7 @@ const newsFeatured = [
   },
 ];
 
-const newsList = [
-  {
-    id: 4,
-    title: "Vui mua sắm – Rinh lịch để bàn 2026 phong cách Nhật Bản",
-    date: "05/12/2025",
-    desc: "Hóa đơn từ 600.000đ tặng lịch để bàn 2026 phong cách Nhật.",
-    image:
-      "https://images.unsplash.com/photo-1462396881884-de2c07cb95ed?auto=format&fit=crop&w=800&q=80",
-  },
-  {
-    id: 5,
-    title: "Đua đơn Black Friday – Nhận quà cực đã cùng 14 Elevent",
-    date: "23/11/2025",
-    desc: "Sale bùng cháy, quà tặng hấp dẫn cho mọi đơn hàng.",
-    image:
-      "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=800&q=80",
-  },
-  {
-    id: 6,
-    title: "Mừng 20 tháng 10 – Săn quà Nhật rạng rỡ",
-    date: "20/10/2025",
-    desc: "Đơn 600k/1 triệu/2 triệu nhận quà xinh dịp 20/10.",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=800&q=80",
-  },
-];
+// Danh sách bài viết text cũ bên phải đã được thay bằng video YouTube mới nhất
 
 const showApplyForm = ref(false);
 const applyForm = ref({
@@ -262,8 +253,8 @@ const submitApply = async () => {
         class="bg-white shadow-md hover:shadow-lg transition-shadow duration-200 border border-neutral-200 flex flex-col rounded-md overflow-hidden"
       >
         <router-link :to="{ name: 'ProductDetail', params: { slug: item.slug } }" class="block flex-1">
-          <div class="relative">
-            <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="w-full h-56 object-cover" />
+          <div class="relative bg-neutral-50 flex items-center justify-center" style="height: 200px;">
+            <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="max-w-full max-h-full object-contain" />
             <!-- Badge góc trên bên trái -->
             <div v-if="item.isOnSale" class="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-sm font-semibold rounded flex items-center gap-1">
               <Bolt class="h-4 w-4" />
@@ -280,7 +271,7 @@ const submitApply = async () => {
 
           <div class="p-5 flex flex-col gap-3">
             <div>
-              <h3 class="text-lg font-semibold text-neutral-900 uppercase tracking-wide">{{ item.name }}</h3>
+              <h3 class="text-lg font-semibold text-neutral-900 uppercase tracking-wide line-clamp-2">{{ item.name }}</h3>
               <p v-if="item.brand" class="text-sm text-neutral-500">{{ item.brand }}</p>
             </div>
           </div>
@@ -319,8 +310,8 @@ const submitApply = async () => {
         class="border border-neutral-200 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col rounded-md overflow-hidden"
       >
         <router-link :to="{ name: 'ProductDetail', params: { slug: item.slug } }" class="block flex-1">
-          <div class="relative">
-            <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="w-full h-56 object-cover" />
+          <div class="relative bg-neutral-50 flex items-center justify-center" style="height: 200px;">
+            <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="max-w-full max-h-full object-contain" />
             <!-- Badge góc trên bên trái -->
             <div v-if="item.isOnSale" class="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-sm font-semibold rounded flex items-center gap-1">
               <Bolt class="h-4 w-4" />
@@ -339,7 +330,7 @@ const submitApply = async () => {
               {{ item.brand }}
             </div>
             <div>
-              <h3 class="text-lg font-semibold text-neutral-900">{{ item.name }}</h3>
+              <h3 class="text-lg font-semibold text-neutral-900 line-clamp-2">{{ item.name }}</h3>
               <p v-if="item.origin" class="text-sm text-neutral-500">{{ item.origin }}</p>
             </div>
           </div>
@@ -396,21 +387,31 @@ const submitApply = async () => {
 
       <div class="grid gap-6 lg:grid-cols-[1.5fr,1fr] items-start">
         <div class="space-y-4">
-          <router-link
-            v-for="item in newsList"
-            :key="item.id"
-            :to="{ name: 'ArticleDetail', params: { id: item.id } }"
+          <a
+            v-for="item in youtubeVideos"
+            :key="item.videoId"
+            :href="`https://www.youtube.com/watch?v=${item.videoId}`"
+            target="_blank"
+            rel="noopener noreferrer"
             class="flex gap-4 border border-neutral-200 p-4 hover:shadow-sm transition-shadow duration-200 cursor-pointer block"
           >
-            <img :src="item.image" :alt="item.title" class="w-28 h-20 object-cover flex-shrink-0" />
+            <img
+              :src="item.thumbnailUrl"
+              :alt="item.title"
+              class="w-28 h-20 object-cover flex-shrink-0"
+            />
             <div class="space-y-1">
-              <div class="text-xs font-semibold text-red-600">{{ item.date }}</div>
-              <h4 class="text-base font-semibold text-neutral-900 leading-snug">
+              <div class="text-xs font-semibold text-red-600">
+                {{ item.publishedAt }}
+              </div>
+              <h4 class="text-base font-semibold text-neutral-900 leading-snug line-clamp-2">
                 {{ item.title }}
               </h4>
-              <p class="text-sm text-neutral-600">{{ item.desc }}</p>
+              <p class="text-sm text-neutral-600 line-clamp-2">
+                {{ item.description }}
+              </p>
             </div>
-          </router-link>
+          </a>
         </div>
         <div class="border border-neutral-200 bg-[#f7f7f7] p-6 text-center flex flex-col items-center gap-3">
           <div class="text-2xl font-semibold text-red-600">14Elevent cần bạn</div>

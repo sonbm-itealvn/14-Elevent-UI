@@ -63,6 +63,10 @@ class UserService {
   async resetPassword(userId: number): Promise<void> {
     await this.httpService.post(`/api/admin/users/${userId}/reset-password`, {});
   }
+
+  async deleteUser(userId: number): Promise<void> {
+    await this.httpService.delete(`/api/admin/users/${userId}`);
+  }
 }
 
 export default new UserService();

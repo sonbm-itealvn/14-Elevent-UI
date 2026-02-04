@@ -77,6 +77,11 @@ const MainRoutes: RouteRecordRaw = {
             meta: {
                 requiresAuth: true,
             },
+        },
+        {
+            path: "/order-success",
+            name: "OrderSuccess",
+            component: () => import("@/ui/views/main/order-success/OrderSuccess.vue"),
         }
     ],
 };

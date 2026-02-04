@@ -269,27 +269,39 @@
           />
         </NFormItem>
 
-        <NFormItem label="Phường/Xã" :show-feedback="false">
-          <NInput
-            v-model:value="checkoutForm.shippingWard"
-            placeholder="Phường/Xã"
+        <NFormItem label="Thành phố/Tỉnh" required :show-feedback="false">
+          <NSelect
+            v-model:value="selectedProvinceCode"
+            :options="provinces.map(p => ({ label: p.name, value: p.code }))"
+            placeholder="Chọn tỉnh/thành phố"
+            :loading="loadingProvinces"
             :disabled="submittingCheckout"
+            filterable
+            @update:value="handleProvinceChange"
           />
         </NFormItem>
 
         <NFormItem label="Quận/Huyện" :show-feedback="false">
-          <NInput
-            v-model:value="checkoutForm.shippingDistrict"
-            placeholder="Quận/Huyện"
-            :disabled="submittingCheckout"
+          <NSelect
+            v-model:value="selectedDistrictCode"
+            :options="districts.map(d => ({ label: d.name, value: d.code }))"
+            placeholder="Chọn quận/huyện"
+            :loading="loadingDistricts"
+            :disabled="submittingCheckout || !selectedProvinceCode"
+            filterable
+            @update:value="handleDistrictChange"
           />
         </NFormItem>
 
-        <NFormItem label="Thành phố/Tỉnh" required :show-feedback="false">
-          <NInput
-            v-model:value="checkoutForm.shippingCity"
-            placeholder="Hà Nội, TP.HCM, ..."
-            :disabled="submittingCheckout"
+        <NFormItem label="Phường/Xã" :show-feedback="false">
+          <NSelect
+            v-model:value="checkoutForm.shippingWard"
+            :options="wards.map(w => ({ label: w.name, value: w.name }))"
+            placeholder="Chọn phường/xã"
+            :loading="loadingWards"
+            :disabled="submittingCheckout || !selectedDistrictCode"
+            filterable
+            @update:value="handleWardChange"
           />
         </NFormItem>
 
@@ -370,6 +382,7 @@ import {
   NEmpty,
   NButton,
   NInput,
+  NSelect,
   NModal,
   NForm,
   NFormItem,
@@ -378,6 +391,7 @@ import {
 import useCartStore from "@/ui/stores/cart.store";
 import useAuthStore from "@/ui/stores/auth.store";
 import CheckoutService from "@/core/services/api/checkout.service";
+import AddressService, { type Province, type District, type Ward } from "@/core/services/api/address.service";
 
 const router = useRouter();
 const message = useMessage();
@@ -495,7 +509,96 @@ const checkoutForm = ref({
 });
 const submittingCheckout = ref(false);
 
-const openCheckoutModal = () => {
+// Address data
+const provinces = ref<Province[]>([]);
+const districts = ref<District[]>([]);
+const wards = ref<Ward[]>([]);
+const selectedProvinceCode = ref<string | null>(null);
+const selectedDistrictCode = ref<string | null>(null);
+const loadingProvinces = ref(false);
+const loadingDistricts = ref(false);
+const loadingWards = ref(false);
+
+const loadProvinces = async () => {
+  if (provinces.value.length > 0) return; // Đã load rồi
+  try {
+    loadingProvinces.value = true;
+    const data = await AddressService.getProvinces();
+    provinces.value = data;
+  } catch (error) {
+    console.error("Error loading provinces:", error);
+    message.error("Không thể tải danh sách tỉnh/thành phố");
+  } finally {
+    loadingProvinces.value = false;
+  }
+};
+
+const loadDistricts = async (provinceCode: string) => {
+  if (!provinceCode) {
+    districts.value = [];
+    wards.value = [];
+    selectedDistrictCode.value = null;
+    checkoutForm.value.shippingDistrict = "";
+    checkoutForm.value.shippingWard = "";
+    return;
+  }
+  try {
+    loadingDistricts.value = true;
+    const data = await AddressService.getDistrictsByProvince(provinceCode);
+    districts.value = data;
+    // Reset district và ward khi đổi province
+    wards.value = [];
+    selectedDistrictCode.value = null;
+    checkoutForm.value.shippingDistrict = "";
+    checkoutForm.value.shippingWard = "";
+  } catch (error) {
+    console.error("Error loading districts:", error);
+    message.error("Không thể tải danh sách quận/huyện");
+  } finally {
+    loadingDistricts.value = false;
+  }
+};
+
+const loadWards = async (districtCode: string) => {
+  if (!districtCode) {
+    wards.value = [];
+    checkoutForm.value.shippingWard = "";
+    return;
+  }
+  try {
+    loadingWards.value = true;
+    const data = await AddressService.getWardsByDistrict(districtCode);
+    wards.value = data;
+    // Reset ward khi đổi district
+    checkoutForm.value.shippingWard = "";
+  } catch (error) {
+    console.error("Error loading wards:", error);
+    message.error("Không thể tải danh sách phường/xã");
+  } finally {
+    loadingWards.value = false;
+  }
+};
+
+const handleProvinceChange = (value: string) => {
+  selectedProvinceCode.value = value;
+  const province = provinces.value.find(p => p.code === value);
+  checkoutForm.value.shippingCity = province?.name || "";
+  loadDistricts(value);
+};
+
+const handleDistrictChange = (value: string) => {
+  selectedDistrictCode.value = value;
+  const district = districts.value.find(d => d.code === value);
+  checkoutForm.value.shippingDistrict = district?.name || "";
+  loadWards(value);
+};
+
+const handleWardChange = (value: string) => {
+  // value đã là ward.name từ options
+  checkoutForm.value.shippingWard = value || "";
+};
+
+const openCheckoutModal = async () => {
   // Reset form với thông tin từ user (nếu có)
   checkoutForm.value = {
     buyerEmail: authStore.user?.email || "",
@@ -507,6 +610,14 @@ const openCheckoutModal = () => {
     shippingCity: "",
     note: "",
   };
+  // Reset address selections
+  selectedProvinceCode.value = null;
+  selectedDistrictCode.value = null;
+  districts.value = [];
+  wards.value = [];
+  
+  // Load provinces khi mở modal
+  await loadProvinces();
   showCheckoutModal.value = true;
 };
 
@@ -608,13 +719,25 @@ const handleCheckout = async () => {
       `Đặt hàng thành công! Mã đơn hàng: ${result.orderCode}`
     );
     
-    // Reset cart store và reload để đảm bảo giỏ hàng được làm mới
-    cartStore.reset();
-    await cartStore.loadCart();
+    // Sau khi đặt hàng thành công:
+    // - Nếu user đã đăng nhập: gọi DELETE /api/cart để xóa giỏ hàng user trên server
+    // - Nếu chưa đăng nhập (guest): KHÔNG xóa giỏ hàng, chỉ reload lại từ backend
+    if (authStore.isAuthenticated) {
+      await cartStore.clearCart();
+    } else {
+      await cartStore.loadCart();
+    }
+
     showCheckoutModal.value = false;
     
-    // Redirect to order success page or home
-    router.push({ name: "Home" });
+    // Redirect to order success page với orderCode và orderId
+    router.push({ 
+      name: "OrderSuccess", 
+      query: { 
+        orderCode: result.orderCode,
+        orderId: result.orderId.toString()
+      } 
+    });
   } catch (error: any) {
     console.error("Error during checkout:", error);
     const errorMsg =

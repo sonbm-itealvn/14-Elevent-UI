@@ -81,8 +81,8 @@ onMounted(() => {
         class="bg-white shadow-md hover:shadow-lg transition-shadow duration-200 border border-neutral-200 flex flex-col rounded-md overflow-hidden"
       >
         <router-link :to="{ name: 'ProductDetail', params: { slug: item.slug } }" class="block flex-1">
-          <div class="relative">
-            <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="w-full h-56 object-cover" />
+          <div class="relative bg-neutral-50 flex items-center justify-center" style="height: 200px;">
+            <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="max-w-full max-h-full object-contain" />
             <!-- Badge góc trên bên trái -->
             <div v-if="item.isOnSale" class="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-sm font-semibold rounded flex items-center gap-1">
               <Bolt class="h-4 w-4" />
@@ -99,7 +99,7 @@ onMounted(() => {
 
           <div class="p-5 flex flex-col gap-3">
             <div>
-              <h3 class="text-lg font-semibold text-neutral-900 uppercase tracking-wide">{{ item.name }}</h3>
+              <h3 class="text-lg font-semibold text-neutral-900 uppercase tracking-wide line-clamp-2">{{ item.name }}</h3>
               <p v-if="item.brand" class="text-sm text-neutral-500">{{ item.brand }}</p>
             </div>
           </div>

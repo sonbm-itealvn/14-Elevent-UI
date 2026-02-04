@@ -26,8 +26,8 @@ const contactInfo = [
     icon: Mail,
     title: 'Email',
     jpTitle: 'メール',
-    content: 'contact@nihonmarket.vn',
-    subContent: 'support@nihonmarket.vn',
+    content: '14elevent@gmail.com',
+    subContent: 'Hỗ trợ khách hàng 24/7',
   },
   {
     icon: MapPin,

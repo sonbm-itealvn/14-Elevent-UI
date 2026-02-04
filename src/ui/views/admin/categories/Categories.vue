@@ -326,8 +326,9 @@ const handleTreeSelect = (keys: (string | number)[]) => {
           <NTreeSelect
             v-model:value="formData.parentId"
             :options="categoryTree"
-            placeholder="Chọn danh mục cha (tùy chọn)"
+            placeholder="Chọn danh mục cha hoặc gõ để tìm kiếm (tùy chọn)"
             clearable
+            filterable
             :default-expand-all="true"
           />
         </NFormItem>

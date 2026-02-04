@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Header from '@/shared/components/header/Header.vue';
 import Footer from '@/shared/components/footer/Footer.vue';
+import ChatBubble from '@/shared/components/chat-bubble/ChatBubble.vue';
 import headerConstant from '@/shared/constants/header.constant';
 </script>
 
@@ -11,6 +12,7 @@ import headerConstant from '@/shared/constants/header.constant';
       <RouterView />
     </main>
     <Footer />
+    <ChatBubble />
   </div>
 </template>
 
