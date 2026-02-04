@@ -141,6 +141,18 @@ const columns = [
         : '-',
   },
   {
+    title: 'Giảm tối đa',
+    key: 'maxDiscount',
+    width: 150,
+    render: (row: Voucher) =>
+      row.maxDiscount
+        ? new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND',
+          }).format(row.maxDiscount)
+        : '-',
+  },
+  {
     title: 'Số lượng',
     key: 'quantity',
     width: 120,
