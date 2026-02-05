@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue';
-import { NGrid, NGridItem, NStatistic, NCard, NDataTable, NTag, useMessage, NSpin } from 'naive-ui';
+import { NStatistic, NCard, NDataTable, NTag, useMessage, NSpin } from 'naive-ui';
 import OrderService from '@/core/services/api/order.service';
 import type { DashboardStatsResponse } from '@/domain/models/order.model';
 
