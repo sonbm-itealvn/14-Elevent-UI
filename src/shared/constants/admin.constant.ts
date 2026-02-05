@@ -7,7 +7,8 @@ import {
   ShoppingCart,
   Receipt,
   Ticket,
-  TrendingUp
+  TrendingUp,
+  MessageCircle
 } from "@vicons/tabler";
 
 const adminConstants: Header[] = [
@@ -58,6 +59,12 @@ const adminConstants: Header[] = [
     icon: Ticket,
     title: "Quản lý voucher",
     to: "/admin/vouchers",
+  },
+  {
+    id: "admin-chatbot",
+    icon: MessageCircle,
+    title: "Quản lý Chatbot",
+    to: "/admin/chatbot",
   },
 ];
 

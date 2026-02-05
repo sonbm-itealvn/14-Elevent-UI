@@ -50,6 +50,11 @@ const AdminRoutes: RouteRecordRaw = {
       name: "AdminVouchers",
       component: () => import("@/ui/views/admin/vouchers/Vouchers.vue"),
     },
+    {
+      path: "chatbot",
+      name: "AdminChatbot",
+      component: () => import("@/ui/views/admin/chatbot/ChatbotManagement.vue"),
+    },
   ],
 };
 
