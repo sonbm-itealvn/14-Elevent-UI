@@ -7,7 +7,14 @@ const useThemeStore = defineStore('theme', {
     actions: {
         setTheme() {
             this.theme = this.theme === "light" ? "dark" : "light";
-            console.log(this.theme);
+            this.syncHtmlClass();
+        },
+        syncHtmlClass() {
+            if (this.theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
         }
     },
     getters: {

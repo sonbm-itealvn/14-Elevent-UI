@@ -1,11 +1,11 @@
 import type { Header } from "@/core/models/header.model";
-import { 
-  Dashboard, 
-  Users, 
-  Folder, 
-  Package, 
-  ShoppingCart, 
-  Receipt, 
+import {
+  Dashboard,
+  Users,
+  Folder,
+  Package,
+  ShoppingCart,
+  Receipt,
   Ticket,
   TrendingUp
 } from "@vicons/tabler";

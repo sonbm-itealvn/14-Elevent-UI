@@ -6,7 +6,7 @@ import headerConstant from '@/shared/constants/header.constant';
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-white">
+  <div class="min-h-screen flex flex-col bg-white dark:bg-gray-900">
     <Header :items="headerConstant" />
     <main class="flex-1">
       <RouterView />

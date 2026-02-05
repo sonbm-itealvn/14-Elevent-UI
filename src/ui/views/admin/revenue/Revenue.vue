@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue';
+import { ref, onMounted, h, computed } from 'vue';
 import {
   NCard,
   NGrid,
@@ -16,6 +16,28 @@ import {
 import { Download } from '@vicons/tabler';
 import OrderService from '@/core/services/api/order.service';
 import type { DashboardStatsResponse } from '@/domain/models/order.model';
+import VChart from 'vue-echarts';
+import { use } from 'echarts/core';
+import { CanvasRenderer } from 'echarts/renderers';
+import { BarChart, LineChart, PieChart } from 'echarts/charts';
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+} from 'echarts/components';
+
+// Register ECharts components
+use([
+  CanvasRenderer,
+  BarChart,
+  LineChart,
+  PieChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+]);
 
 const message = useMessage();
 const loading = ref(false);
@@ -63,6 +85,312 @@ const getMonthName = (month: number) => {
   ];
   return months[month - 1] || `Tháng ${month}`;
 };
+
+// Chart options computed
+const dailyRevenueChartOption = computed(() => {
+  if (!stats.value?.revenue?.dailyRevenueLast7Days) return {};
+  
+  const data = stats.value.revenue.dailyRevenueLast7Days;
+  const dates = data.map(item => formatDate(item.date));
+  const revenues = data.map(item => item.revenue);
+  const orders = data.map(item => item.orderCount);
+  
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'cross' },
+      formatter: (params: any) => {
+        let result = `<strong>${params[0].axisValue}</strong><br/>`;
+        params.forEach((param: any) => {
+          const value = param.seriesName === 'Doanh thu' 
+            ? formatCurrency(param.value) 
+            : `${param.value} đơn`;
+          result += `${param.marker} ${param.seriesName}: ${value}<br/>`;
+        });
+        return result;
+      }
+    },
+    legend: {
+      data: ['Doanh thu', 'Số đơn'],
+      bottom: 0
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '15%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      axisLabel: { rotate: 30 }
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: 'Doanh thu (VND)',
+        position: 'left',
+        axisLabel: {
+          formatter: (value: number) => {
+            if (value >= 1000000) return `${(value / 1000000).toFixed(0)}M`;
+            if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+            return value.toString();
+          }
+        }
+      },
+      {
+        type: 'value',
+        name: 'Số đơn',
+        position: 'right',
+        splitLine: { show: false }
+      }
+    ],
+    series: [
+      {
+        name: 'Doanh thu',
+        type: 'bar',
+        data: revenues,
+        itemStyle: { color: '#b3000f' },
+        yAxisIndex: 0
+      },
+      {
+        name: 'Số đơn',
+        type: 'line',
+        data: orders,
+        smooth: true,
+        itemStyle: { color: '#3b82f6' },
+        yAxisIndex: 1
+      }
+    ]
+  };
+});
+
+const monthlyRevenueChartOption = computed(() => {
+  if (!stats.value?.revenue?.monthlyRevenueLast12Months) return {};
+  
+  const data = stats.value.revenue.monthlyRevenueLast12Months;
+  const months = data.map(item => `${getMonthName(item.month)}/${item.year}`);
+  const revenues = data.map(item => item.revenue);
+  const orders = data.map(item => item.orderCount);
+  
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'cross' },
+      formatter: (params: any) => {
+        let result = `<strong>${params[0].axisValue}</strong><br/>`;
+        params.forEach((param: any) => {
+          const value = param.seriesName === 'Doanh thu' 
+            ? formatCurrency(param.value) 
+            : `${param.value} đơn`;
+          result += `${param.marker} ${param.seriesName}: ${value}<br/>`;
+        });
+        return result;
+      }
+    },
+    legend: {
+      data: ['Doanh thu', 'Số đơn'],
+      bottom: 0
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '15%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: months,
+      axisLabel: { rotate: 45 }
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: 'Doanh thu (VND)',
+        position: 'left',
+        axisLabel: {
+          formatter: (value: number) => {
+            if (value >= 1000000) return `${(value / 1000000).toFixed(0)}M`;
+            if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+            return value.toString();
+          }
+        }
+      },
+      {
+        type: 'value',
+        name: 'Số đơn',
+        position: 'right',
+        splitLine: { show: false }
+      }
+    ],
+    series: [
+      {
+        name: 'Doanh thu',
+        type: 'bar',
+        data: revenues,
+        itemStyle: { 
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: '#ef4444' },
+              { offset: 1, color: '#b3000f' }
+            ]
+          }
+        },
+        yAxisIndex: 0
+      },
+      {
+        name: 'Số đơn',
+        type: 'line',
+        data: orders,
+        smooth: true,
+        itemStyle: { color: '#10b981' },
+        areaStyle: { 
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(16, 185, 129, 0.3)' },
+              { offset: 1, color: 'rgba(16, 185, 129, 0)' }
+            ]
+          }
+        },
+        yAxisIndex: 1
+      }
+    ]
+  };
+});
+
+const orderStatusChartOption = computed(() => {
+  if (!stats.value?.overall) return {};
+  
+  const overall = stats.value.overall;
+  
+  return {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: {c} ({d}%)'
+    },
+    legend: {
+      orient: 'vertical',
+      right: 10,
+      top: 'center'
+    },
+    series: [
+      {
+        name: 'Trạng thái đơn hàng',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 10,
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        label: {
+          show: false,
+          position: 'center'
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 16,
+            fontWeight: 'bold'
+          }
+        },
+        labelLine: { show: false },
+        data: [
+          { value: overall.pendingOrders, name: 'Chờ xử lý', itemStyle: { color: '#6b7280' } },
+          { value: overall.completedOrders, name: 'Hoàn thành', itemStyle: { color: '#10b981' } },
+          { value: overall.cancelledOrders, name: 'Đã hủy', itemStyle: { color: '#ef4444' } },
+        ].filter(item => item.value > 0)
+      }
+    ]
+  };
+});
+
+const topProductsChartOption = computed(() => {
+  if (!stats.value?.topProducts) return {};
+  
+  const data = stats.value.topProducts.slice(0, 5);
+  const names = data.map(item => item.productName.length > 20 ? item.productName.slice(0, 20) + '...' : item.productName);
+  const revenues = data.map(item => item.totalRevenue);
+  const sold = data.map(item => item.totalSold);
+  
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params: any) => {
+        const idx = params[0].dataIndex;
+        const fullName = stats.value?.topProducts[idx]?.productName || '';
+        let result = `<strong>${fullName}</strong><br/>`;
+        params.forEach((param: any) => {
+          const value = param.seriesName === 'Doanh thu' 
+            ? formatCurrency(param.value) 
+            : `${param.value} sản phẩm`;
+          result += `${param.marker} ${param.seriesName}: ${value}<br/>`;
+        });
+        return result;
+      }
+    },
+    legend: {
+      data: ['Doanh thu', 'Số lượng bán'],
+      bottom: 0
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '15%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: names,
+      axisLabel: { 
+        rotate: 20,
+        interval: 0
+      }
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: 'Doanh thu',
+        position: 'left',
+        axisLabel: {
+          formatter: (value: number) => {
+            if (value >= 1000000) return `${(value / 1000000).toFixed(0)}M`;
+            if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+            return value.toString();
+          }
+        }
+      },
+      {
+        type: 'value',
+        name: 'Số lượng',
+        position: 'right',
+        splitLine: { show: false }
+      }
+    ],
+    series: [
+      {
+        name: 'Doanh thu',
+        type: 'bar',
+        data: revenues,
+        itemStyle: { color: '#f59e0b' },
+        yAxisIndex: 0
+      },
+      {
+        name: 'Số lượng bán',
+        type: 'bar',
+        data: sold,
+        itemStyle: { color: '#8b5cf6' },
+        yAxisIndex: 1
+      }
+    ]
+  };
+});
 
 const loadStats = async () => {
   try {
@@ -152,7 +480,7 @@ onMounted(() => {
       <div v-if="stats" class="space-y-6">
         <!-- Tổng quan -->
         <NCard title="Tổng quan" class="mb-6">
-          <NGrid :cols="3" :x-gap="12" :y-gap="12">
+          <NGrid :cols="4" :x-gap="12" :y-gap="12">
             <NGridItem>
               <NStatistic
                 label="Tổng doanh thu"
@@ -167,27 +495,20 @@ onMounted(() => {
             </NGridItem>
             <NGridItem>
               <NStatistic
-                label="Giá trị đơn hàng trung bình"
+                label="Giá trị đơn trung bình"
                 :value="formatCurrency(stats.overall.averageOrderValue)"
               />
             </NGridItem>
             <NGridItem>
-              <NStatistic
-                label="Đơn hàng đang chờ"
-                :value="stats.overall.pendingOrders"
-              />
-            </NGridItem>
-            <NGridItem>
-              <NStatistic
-                label="Đơn hàng hoàn thành"
-                :value="stats.overall.completedOrders"
-              />
-            </NGridItem>
-            <NGridItem>
-              <NStatistic
-                label="Đơn hàng đã hủy"
-                :value="stats.overall.cancelledOrders"
-              />
+              <!-- Order Status Pie Chart -->
+              <div class="text-center">
+                <div class="text-sm text-gray-500 mb-2">Trạng thái đơn hàng</div>
+                <v-chart 
+                  :option="orderStatusChartOption" 
+                  style="height: 150px; width: 100%"
+                  autoresize
+                />
+              </div>
             </NGridItem>
           </NGrid>
         </NCard>
@@ -222,98 +543,103 @@ onMounted(() => {
           </NGrid>
         </NCard>
 
-        <!-- Số lượng đơn hàng theo thời gian -->
-        <NCard title="Số lượng đơn hàng theo thời gian" class="mb-6">
-          <NGrid :cols="4" :x-gap="12" :y-gap="12">
-            <NGridItem>
-              <NStatistic
-                label="Đơn hàng hôm nay"
-                :value="stats.orderCounts.todayOrders"
-              />
-            </NGridItem>
-            <NGridItem>
-              <NStatistic
-                label="Đơn hàng tuần này"
-                :value="stats.orderCounts.thisWeekOrders"
-              />
-            </NGridItem>
-            <NGridItem>
-              <NStatistic
-                label="Đơn hàng tháng này"
-                :value="stats.orderCounts.thisMonthOrders"
-              />
-            </NGridItem>
-            <NGridItem>
-              <NStatistic
-                label="Đơn hàng năm này"
-                :value="stats.orderCounts.thisYearOrders"
-              />
-            </NGridItem>
-          </NGrid>
-        </NCard>
-
-        <!-- Doanh thu 7 ngày gần đây -->
-        <NCard title="Doanh thu 7 ngày gần đây" class="mb-6">
-          <NDataTable
-            :columns="[
-              {
-                title: 'Ngày',
-                key: 'date',
-                width: 150,
-                render: (row) => formatDate(row.date),
-              },
-              {
-                title: 'Doanh thu',
-                key: 'revenue',
-                width: 200,
-                align: 'right',
-                render: (row) => h('span', { class: 'font-semibold text-green-600' }, formatCurrency(row.revenue)),
-              },
-              {
-                title: 'Số đơn hàng',
-                key: 'orderCount',
-                width: 150,
-                align: 'center',
-              },
-            ]"
-            :data="stats.revenue.dailyRevenueLast7Days"
-            :bordered="true"
-            striped
+        <!-- Chart: Doanh thu 7 ngày gần đây -->
+        <NCard title="📊 Biểu đồ doanh thu 7 ngày gần đây" class="mb-6">
+          <v-chart 
+            :option="dailyRevenueChartOption" 
+            style="height: 350px; width: 100%"
+            autoresize
           />
         </NCard>
 
-        <!-- Doanh thu 12 tháng gần đây -->
-        <NCard title="Doanh thu 12 tháng gần đây" class="mb-6">
-          <NDataTable
-            :columns="[
-              {
-                title: 'Tháng',
-                key: 'month',
-                width: 150,
-                render: (row) => `${getMonthName(row.month)}/${row.year}`,
-              },
-              {
-                title: 'Doanh thu',
-                key: 'revenue',
-                width: 200,
-                align: 'right',
-                render: (row) => h('span', { class: 'font-semibold text-green-600' }, formatCurrency(row.revenue)),
-              },
-              {
-                title: 'Số đơn hàng',
-                key: 'orderCount',
-                width: 150,
-                align: 'center',
-              },
-            ]"
-            :data="stats.revenue.monthlyRevenueLast12Months"
-            :bordered="true"
-            striped
+        <!-- Chart: Doanh thu 12 tháng gần đây -->
+        <NCard title="📈 Biểu đồ doanh thu 12 tháng gần đây" class="mb-6">
+          <v-chart 
+            :option="monthlyRevenueChartOption" 
+            style="height: 400px; width: 100%"
+            autoresize
           />
         </NCard>
+
+        <!-- Chart: Sản phẩm bán chạy -->
+        <NCard title="🏆 Top 5 sản phẩm bán chạy" class="mb-6">
+          <v-chart 
+            :option="topProductsChartOption" 
+            style="height: 350px; width: 100%"
+            autoresize
+          />
+        </NCard>
+
+        <!-- Bảng dữ liệu chi tiết -->
+        <NGrid :cols="2" :x-gap="12" :y-gap="12">
+          <!-- Doanh thu 7 ngày gần đây - Table -->
+          <NGridItem>
+            <NCard title="Chi tiết doanh thu 7 ngày" class="h-full">
+              <NDataTable
+                :columns="[
+                  {
+                    title: 'Ngày',
+                    key: 'date',
+                    width: 120,
+                    render: (row) => formatDate(row.date),
+                  },
+                  {
+                    title: 'Doanh thu',
+                    key: 'revenue',
+                    width: 150,
+                    align: 'right',
+                    render: (row) => h('span', { class: 'font-semibold text-green-600' }, formatCurrency(row.revenue)),
+                  },
+                  {
+                    title: 'Số đơn',
+                    key: 'orderCount',
+                    width: 80,
+                    align: 'center',
+                  },
+                ]"
+                :data="stats.revenue.dailyRevenueLast7Days"
+                :bordered="true"
+                size="small"
+                striped
+              />
+            </NCard>
+          </NGridItem>
+
+          <!-- Sản phẩm bán chạy - Table -->
+          <NGridItem>
+            <NCard title="Bảng sản phẩm bán chạy" class="h-full">
+              <NDataTable
+                :columns="[
+                  {
+                    title: 'Sản phẩm',
+                    key: 'productName',
+                    ellipsis: { tooltip: true },
+                  },
+                  {
+                    title: 'Đã bán',
+                    key: 'totalSold',
+                    width: 80,
+                    align: 'center',
+                  },
+                  {
+                    title: 'Doanh thu',
+                    key: 'totalRevenue',
+                    width: 130,
+                    align: 'right',
+                    render: (row) => h('span', { class: 'font-semibold text-green-600' }, formatCurrency(row.totalRevenue)),
+                  },
+                ]"
+                :data="stats.topProducts"
+                :bordered="true"
+                size="small"
+                striped
+              />
+            </NCard>
+          </NGridItem>
+        </NGrid>
 
         <!-- Đơn hàng gần đây -->
-        <NCard title="Đơn hàng gần đây" class="mb-6">
+        <NCard title="Đơn hàng gần đây" class="mb-6 mt-6">
           <NDataTable
             :columns="[
               {
@@ -353,40 +679,6 @@ onMounted(() => {
             striped
           />
         </NCard>
-
-        <!-- Sản phẩm bán chạy -->
-        <NCard title="Sản phẩm bán chạy" class="mb-6">
-          <NDataTable
-            :columns="[
-              {
-                title: 'ID sản phẩm',
-                key: 'productId',
-                width: 120,
-              },
-              {
-                title: 'Tên sản phẩm',
-                key: 'productName',
-                ellipsis: { tooltip: true },
-              },
-              {
-                title: 'Số lượng đã bán',
-                key: 'totalSold',
-                width: 150,
-                align: 'center',
-              },
-              {
-                title: 'Doanh thu',
-                key: 'totalRevenue',
-                width: 200,
-                align: 'right',
-                render: (row) => h('span', { class: 'font-semibold text-green-600' }, formatCurrency(row.totalRevenue)),
-              },
-            ]"
-            :data="stats.topProducts"
-            :bordered="true"
-            striped
-          />
-        </NCard>
       </div>
     </NSpin>
   </div>
@@ -394,4 +686,3 @@ onMounted(() => {
 
 <style scoped>
 </style>
-
