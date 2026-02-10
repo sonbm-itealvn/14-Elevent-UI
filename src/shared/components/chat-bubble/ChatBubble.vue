@@ -147,6 +147,7 @@ const sendMessage = async () => {
   if (!inputMessage.value.trim() || sending.value) return;
 
   sending.value = true;
+  const isNewConversation = !conversationId.value;
 
   // Thêm tin nhắn của người dùng
   const userMessage: Message = {
@@ -185,29 +186,20 @@ const sendMessage = async () => {
     const result = await ChatService.sendMessage(messageText, conversationId.value || undefined);
     
     // Lưu conversationId từ response
-    if (result.conversationId) {
+    // Chỉ nhận conversationId mới khi đây là cuộc trò chuyện mới (nhấn \"Cuộc trò chuyện mới\" hoặc lần chat đầu)
+    if (isNewConversation && result.conversationId) {
       const newConversationId = result.conversationId;
       conversationId.value = newConversationId;
       
       // Nếu đã đăng nhập và chưa có session được chọn, reload sessions để tìm session mới
       if (isAuthenticated.value) {
-        if (!selectedSession.value) {
-          // Chưa có session nào được chọn, reload sessions để tìm session mới tạo
-          await loadSessions();
-          // Tìm session có conversationId trùng với response
-          const newSession = sessions.value.find(s => s.conversationId === newConversationId);
-          if (newSession) {
-            selectedSession.value = newSession;
-          }
-        } else if (selectedSession.value.conversationId !== newConversationId) {
-          // ConversationId thay đổi (tạo session mới), reload sessions
-          await loadSessions();
-          const updatedSession = sessions.value.find(s => s.conversationId === newConversationId);
-          if (updatedSession) {
-            selectedSession.value = updatedSession;
-          }
+        // Reload danh sách sessions để cập nhật session mới tạo
+        await loadSessions();
+        // Tự động chọn session vừa tạo
+        const newSession = sessions.value.find(s => s.conversationId === newConversationId);
+        if (newSession) {
+          selectedSession.value = newSession;
         }
-        // Nếu conversationId giữ nguyên, không cần reload (tin nhắn đã được thêm vào messages array)
       }
     }
 
@@ -874,14 +866,14 @@ onMounted(() => {
 
 .send-button {
   flex-shrink: 0;
-  background: #000000;
+  background: #b3000f;
   border: 2px solid #b3000f;
   color: white;
 }
 
 .send-button:hover {
-  background: #b3000f;
-  border-color: #ff0000;
+  background: #dc2626;
+  border-color: #dc2626;
 }
 
 .send-button:disabled {
