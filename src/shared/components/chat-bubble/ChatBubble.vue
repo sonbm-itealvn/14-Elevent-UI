@@ -343,7 +343,7 @@ onMounted(() => {
               <div
                 v-for="session in sessions"
                 :key="session.id"
-                :class="['session-item', { active: selectedSession?.id === session.id }]"
+                :class="['session-item', { active: selectedSession && selectedSession.id === session.id }]"
                 @click="selectSession(session)"
               >
                 <div class="session-icon">
@@ -411,7 +411,7 @@ onMounted(() => {
                 <div
                   v-for="message in messages"
                   :key="message.id"
-                  :class="['message', `message-${message.sender}`]"
+                  :class="['message', 'message-' + message.sender]"
                 >
                   <div class="message-content">
                     <div v-if="message.isTyping" class="typing-indicator">
@@ -482,7 +482,7 @@ onMounted(() => {
   </div>
 </template>
 
-<style scoped>
+<style>
 .chat-bubble-container {
   position: fixed;
   bottom: 24px;
