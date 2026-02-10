@@ -1,32 +1,152 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { Close, Send } from '@vicons/ionicons5';
-import { NIcon, NButton, NInput, NScrollbar } from 'naive-ui';
+import { Plus, MessageCircle } from '@vicons/tabler';
+import { NIcon, NButton, NInput, NScrollbar, useMessage } from 'naive-ui';
+import useAuthStore from '@/ui/stores/auth.store';
+import ChatService, { type ChatSession } from '@/core/services/api/chat.service';
+
+const message = useMessage();
+const authStore = useAuthStore();
 
 interface Message {
   id: string;
   text: string;
   sender: 'user' | 'bot';
   timestamp: Date;
+  isTyping?: boolean;
 }
 
 const isOpen = ref(false);
-const messages = ref<Message[]>([
-  {
-    id: '1',
-    text: 'Xin chào! Tôi có thể giúp gì cho bạn?',
-    sender: 'bot',
-    timestamp: new Date()
-  }
-]);
+const messages = ref<Message[]>([]);
 const inputMessage = ref('');
+const conversationId = ref<string | null>(null);
+const sending = ref(false);
+const loadingSessions = ref(false);
+const loadingMessages = ref(false);
+const sessions = ref<ChatSession[]>([]);
+const selectedSession = ref<ChatSession | null>(null);
+
+const isAuthenticated = computed(() => authStore.isAuthenticated);
+
+// Welcome message khi chưa có conversation
+const welcomeMessage: Message = {
+  id: 'welcome',
+  text: 'Xin chào! Tôi có thể giúp gì cho bạn?',
+  sender: 'bot',
+  timestamp: new Date()
+};
 
 const toggleChat = () => {
   isOpen.value = !isOpen.value;
+  if (isOpen.value && isAuthenticated.value) {
+    loadSessions();
+  }
+};
+
+const loadSessions = async () => {
+  if (!isAuthenticated.value) return;
+  
+  try {
+    loadingSessions.value = true;
+    const data = await ChatService.getSessions();
+    console.log('Loaded sessions from API:', data);
+    // Sắp xếp sessions theo thời gian tạo mới nhất trước
+    sessions.value = data.sort((a, b) => {
+      // Xử lý format "2026-02-10 13:39:24"
+      const dateA = new Date(a.createdAt.replace(' ', 'T')).getTime();
+      const dateB = new Date(b.createdAt.replace(' ', 'T')).getTime();
+      return dateB - dateA;
+    });
+    console.log('Sessions after sorting:', sessions.value);
+    
+    // Nếu có session được chọn, kiểm tra xem nó còn tồn tại không
+    if (selectedSession.value) {
+      const stillExists = sessions.value.find(s => s.id === selectedSession.value!.id);
+      if (!stillExists) {
+        // Session đã bị xóa, reset
+        selectedSession.value = null;
+        conversationId.value = null;
+        messages.value = [welcomeMessage];
+      } else {
+        // Cập nhật selectedSession với data mới nhất
+        selectedSession.value = stillExists;
+      }
+    } else if (data.length > 0) {
+      // Chưa có session nào được chọn, tự động chọn session mới nhất
+      selectSession(sessions.value[0]);
+    } else {
+      // Không có session nào, reset messages về welcome
+      messages.value = [welcomeMessage];
+      conversationId.value = null;
+      selectedSession.value = null;
+    }
+  } catch (error: any) {
+    message.error('Lỗi khi tải danh sách cuộc trò chuyện');
+    console.error(error);
+  } finally {
+    loadingSessions.value = false;
+  }
+};
+
+const selectSession = async (session: ChatSession) => {
+  // Đánh dấu session được chọn
+  selectedSession.value = session;
+  conversationId.value = session.conversationId;
+  
+  try {
+    loadingMessages.value = true;
+    // Gọi API để lấy lịch sử chat của session này
+    const chatMessages = await ChatService.getMessages(session.conversationId);
+    
+    // Convert API messages to component messages
+    if (chatMessages && chatMessages.length > 0) {
+      messages.value = chatMessages.map((msg, index) => {
+        const senderNormalized = (msg.sender || '').toString().toUpperCase();
+        const sender: 'user' | 'bot' =
+          senderNormalized === 'USER' ? 'user' : 'bot';
+
+        return {
+          id: `msg-${session.conversationId}-${index}-${Date.now()}`,
+          text: msg.content,
+          sender,
+          timestamp: new Date(msg.createdAt)
+        };
+      });
+    } else {
+      // Nếu không có messages, hiển thị welcome message
+      messages.value = [welcomeMessage];
+    }
+    
+    // Scroll to bottom sau khi load xong
+    setTimeout(() => {
+      const container = document.querySelector('.messages-container');
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }, 200);
+  } catch (error: any) {
+    message.error('Lỗi khi tải lịch sử chat');
+    console.error('Error loading messages:', error);
+    // Nếu lỗi, vẫn hiển thị welcome message
+    messages.value = [welcomeMessage];
+  } finally {
+    loadingMessages.value = false;
+  }
+};
+
+const createNewConversation = () => {
+  selectedSession.value = null;
+  conversationId.value = null;
+  messages.value = [welcomeMessage];
+  // Clear input
+  inputMessage.value = '';
 };
 
 const sendMessage = async () => {
-  if (!inputMessage.value.trim()) return;
+  if (!inputMessage.value.trim() || sending.value) return;
+
+  sending.value = true;
 
   // Thêm tin nhắn của người dùng
   const userMessage: Message = {
@@ -41,39 +161,89 @@ const sendMessage = async () => {
   const messageText = inputMessage.value.trim();
   inputMessage.value = '';
 
-  // Gọi API chat thực tế
-  try {
-    const response = await fetch('http://localhost:8000/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ message: messageText })
-    });
+  // Thêm typing indicator
+  const typingMessageId = `typing-${Date.now()}`;
+  const typingMessage: Message = {
+    id: typingMessageId,
+    text: '',
+    sender: 'bot',
+    timestamp: new Date(),
+    isTyping: true
+  };
+  messages.value.push(typingMessage);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+  // Scroll to bottom
+  setTimeout(() => {
+    const container = document.querySelector('.messages-container');
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, 100);
+
+  // Gọi API chat
+  try {
+    const result = await ChatService.sendMessage(messageText, conversationId.value || undefined);
+    
+    // Lưu conversationId từ response
+    if (result.conversationId) {
+      const newConversationId = result.conversationId;
+      conversationId.value = newConversationId;
+      
+      // Nếu đã đăng nhập và chưa có session được chọn, reload sessions để tìm session mới
+      if (isAuthenticated.value) {
+        if (!selectedSession.value) {
+          // Chưa có session nào được chọn, reload sessions để tìm session mới tạo
+          await loadSessions();
+          // Tìm session có conversationId trùng với response
+          const newSession = sessions.value.find(s => s.conversationId === newConversationId);
+          if (newSession) {
+            selectedSession.value = newSession;
+          }
+        } else if (selectedSession.value.conversationId !== newConversationId) {
+          // ConversationId thay đổi (tạo session mới), reload sessions
+          await loadSessions();
+          const updatedSession = sessions.value.find(s => s.conversationId === newConversationId);
+          if (updatedSession) {
+            selectedSession.value = updatedSession;
+          }
+        }
+        // Nếu conversationId giữ nguyên, không cần reload (tin nhắn đã được thêm vào messages array)
+      }
     }
 
-    const data = await response.json();
-    const replyText =
-      data?.reply || data?.message || data?.content || 'Hệ thống đã nhận được câu hỏi của bạn.';
+    const replyText = result.reply || 'Hệ thống đã nhận được câu hỏi của bạn.';
 
-    const botMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      text: replyText,
-      sender: 'bot',
-      timestamp: new Date()
-    };
-    messages.value.push(botMessage);
-  } catch (error) {
-    const botMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      text: 'Xin lỗi, hiện không kết nối được tới máy chủ chat (http://localhost:8000). Vui lòng thử lại sau.',
-      sender: 'bot',
-      timestamp: new Date()
-    };
-    messages.value.push(botMessage);
+    // Thay thế typing indicator bằng response thật
+    const typingIndex = messages.value.findIndex(m => m.id === typingMessageId);
+    if (typingIndex !== -1) {
+      messages.value[typingIndex] = {
+        id: (Date.now() + 1).toString(),
+        text: replyText,
+        sender: 'bot',
+        timestamp: new Date()
+      };
+    }
+    
+    // Scroll to bottom after response
+    setTimeout(() => {
+      const container = document.querySelector('.messages-container');
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }, 100);
+  } catch (error: any) {
+    // Thay thế typing indicator bằng message lỗi
+    const typingIndex = messages.value.findIndex(m => m.id === typingMessageId);
+    if (typingIndex !== -1) {
+      messages.value[typingIndex] = {
+        id: (Date.now() + 1).toString(),
+        text: error.message || 'Xin lỗi, hiện không kết nối được tới máy chủ chat. Vui lòng thử lại sau.',
+        sender: 'bot',
+        timestamp: new Date()
+      };
+    }
+  } finally {
+    sending.value = false;
   }
 };
 
@@ -90,84 +260,200 @@ const formatTime = (date: Date) => {
     minute: '2-digit'
   }).format(date);
 };
+
+const formatDate = (dateString: string) => {
+  try {
+    // Xử lý format "2026-02-10 13:39:24" hoặc ISO format
+    const date = new Date(dateString.replace(' ', 'T'));
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Reset time để so sánh chỉ ngày
+    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+    
+    if (dateOnly.getTime() === todayOnly.getTime()) {
+      // Hiển thị giờ nếu là hôm nay
+      return new Intl.DateTimeFormat('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } else if (dateOnly.getTime() === yesterdayOnly.getTime()) {
+      return 'Hôm qua';
+    } else {
+      return new Intl.DateTimeFormat('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).format(date);
+    }
+  } catch (error) {
+    return dateString;
+  }
+};
+
+// Watch authentication status
+watch(isAuthenticated, (newVal) => {
+  if (newVal && isOpen.value) {
+    loadSessions();
+  } else if (!newVal) {
+    // Reset khi logout
+    sessions.value = [];
+    selectedSession.value = null;
+    conversationId.value = null;
+    messages.value = [welcomeMessage];
+  }
+});
+
+// Initialize messages
+onMounted(() => {
+  if (!isAuthenticated.value) {
+    messages.value = [welcomeMessage];
+  }
+});
 </script>
 
 <template>
   <div class="chat-bubble-container">
     <!-- Chat Window -->
     <Transition name="chat-window">
-      <div v-if="isOpen" class="chat-window">
-        <!-- Header -->
-        <div class="chat-header">
-          <div class="flex items-center gap-3">
-            <div class="chat-avatar">
-              <img
-                src="/14elevent.jpg"
-                alt="14Elevent"
-                class="w-full h-full object-contain rounded-full"
-              />
-            </div>
-            <div>
-              <h3 class="chat-title">14Elevent</h3>
-              <p class="chat-subtitle">Chúng tôi sẵn sàng trợ giúp. Vui lòng hỏi chúng tôi bất cứ điều gì hoặc chia sẻ phản hồi của bạn</p>
-            </div>
+      <div v-if="isOpen" class="chat-window" :class="{ 'with-sidebar': isAuthenticated }">
+        <!-- Sidebar cho user đã đăng nhập -->
+        <div v-if="isAuthenticated" class="chat-sidebar">
+          <div class="sidebar-header">
+            <h4 class="sidebar-title">Cuộc trò chuyện</h4>
+            <NButton
+              quaternary
+              circle
+              size="small"
+              @click="createNewConversation"
+              class="new-chat-button"
+              title="Cuộc trò chuyện mới"
+            >
+              <template #icon>
+                <NIcon><Plus /></NIcon>
+              </template>
+            </NButton>
           </div>
-          <NButton
-            quaternary
-            circle
-            size="small"
-            @click="toggleChat"
-            class="close-button"
-          >
-            <template #icon>
-              <NIcon>
-                <Close />
-              </NIcon>
-            </template>
-          </NButton>
-        </div>
-
-        <!-- Messages -->
-        <div class="chat-messages">
-          <NScrollbar style="max-height: 400px;">
-            <div class="messages-container">
+          
+          <NScrollbar style="height: calc(100% - 60px);">
+            <div class="sessions-list">
               <div
-                v-for="message in messages"
-                :key="message.id"
-                :class="['message', `message-${message.sender}`]"
+                v-for="session in sessions"
+                :key="session.id"
+                :class="['session-item', { active: selectedSession?.id === session.id }]"
+                @click="selectSession(session)"
               >
-                <div class="message-content">
-                  <p class="message-text">{{ message.text }}</p>
-                  <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+                <div class="session-icon">
+                  <NIcon><MessageCircle /></NIcon>
                 </div>
+                <div class="session-info">
+                  <div class="session-title">{{ session.title || 'Cuộc trò chuyện mới' }}</div>
+                  <div class="session-date">{{ formatDate(session.createdAt) }}</div>
+                </div>
+              </div>
+              
+              <div v-if="loadingSessions" class="loading-sessions">
+                Đang tải...
+              </div>
+              
+              <div v-if="!loadingSessions && sessions.length === 0" class="empty-sessions">
+                <p>Chưa có cuộc trò chuyện nào</p>
+                <NButton size="small" @click="createNewConversation">
+                  Bắt đầu cuộc trò chuyện mới
+                </NButton>
               </div>
             </div>
           </NScrollbar>
         </div>
 
-        <!-- Input Area -->
-        <div class="chat-input-area">
-          <NInput
-            v-model:value="inputMessage"
-            type="textarea"
-            placeholder="Nhập tin nhắn của bạn..."
-            :autosize="{ minRows: 1, maxRows: 4 }"
-            @keydown="handleKeyPress"
-            class="chat-input"
-          />
-          <NButton
-            type="primary"
-            circle
-            :disabled="!inputMessage.trim()"
-            @click="sendMessage"
-            class="send-button"
-          >
-            <template #icon>
-              <NIcon>
-                <Send />
-              </NIcon>
-            </template>
-          </NButton>
+        <!-- Main Chat Area -->
+        <div class="chat-main">
+          <!-- Header -->
+          <div class="chat-header">
+            <div class="flex items-center gap-3">
+              <div class="chat-avatar">
+                <img
+                  src="/14elevent.jpg"
+                  alt="14Elevent"
+                  class="w-full h-full object-contain rounded-full"
+                />
+              </div>
+              <div>
+                <h3 class="chat-title">14Elevent</h3>
+                <p class="chat-subtitle">Chúng tôi sẵn sàng trợ giúp. Vui lòng hỏi chúng tôi bất cứ điều gì hoặc chia sẻ phản hồi của bạn</p>
+              </div>
+            </div>
+            <NButton
+              quaternary
+              circle
+              size="small"
+              @click="toggleChat"
+              class="close-button"
+            >
+              <template #icon>
+                <NIcon>
+                  <Close />
+                </NIcon>
+              </template>
+            </NButton>
+          </div>
+
+          <!-- Messages -->
+          <div class="chat-messages">
+            <NScrollbar style="max-height: 400px;">
+              <div class="messages-container">
+                <div v-if="loadingMessages" class="loading-messages">
+                  Đang tải tin nhắn...
+                </div>
+                <div
+                  v-for="message in messages"
+                  :key="message.id"
+                  :class="['message', `message-${message.sender}`]"
+                >
+                  <div class="message-content">
+                    <div v-if="message.isTyping" class="typing-indicator">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                    <template v-else>
+                      <p class="message-text">{{ message.text }}</p>
+                      <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </NScrollbar>
+          </div>
+
+          <!-- Input Area -->
+          <div class="chat-input-area">
+            <NInput
+              v-model:value="inputMessage"
+              type="textarea"
+              placeholder="Nhập tin nhắn của bạn..."
+              :autosize="{ minRows: 1, maxRows: 4 }"
+              @keydown="handleKeyPress"
+              class="chat-input"
+            />
+            <NButton
+              type="primary"
+              circle
+              :disabled="!inputMessage.trim() || sending"
+              :loading="sending"
+              @click="sendMessage"
+              class="send-button"
+            >
+              <template #icon>
+                <NIcon>
+                  <Send />
+                </NIcon>
+              </template>
+            </NButton>
+          </div>
         </div>
       </div>
     </Transition>
@@ -179,11 +465,17 @@ const formatTime = (date: Date) => {
         class="chat-button"
         @click="toggleChat"
       >
-        <img
-          src="/14elevent.jpg"
-          alt="Chat"
-          class="chat-button-logo"
-        />
+        <div class="chat-button-content">
+          <div class="chat-button-icon">
+            <NIcon>
+              <MessageCircle />
+            </NIcon>
+          </div>
+          <div class="chat-button-text-group">
+            <span class="chat-button-title">Chat hỗ trợ</span>
+            <span class="chat-button-subtitle">Hỏi 14Elevent</span>
+          </div>
+        </div>
         <span v-if="messages.length > 1" class="notification-badge">{{ messages.length - 1 }}</span>
       </div>
     </Transition>
@@ -200,10 +492,10 @@ const formatTime = (date: Date) => {
 
 /* Floating Button */
 .chat-button {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: #000000;
+  min-width: 64px;
+  height: 56px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 0 0, #ff4b6b, #b3000f 60%, #4b0008 100%);
   border: 3px solid #b3000f;
   box-shadow: 0 4px 20px rgba(179, 0, 15, 0.4);
   display: flex;
@@ -212,18 +504,54 @@ const formatTime = (date: Date) => {
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
-  /* Cho badge thông báo hiển thị trọn vẹn, hình tròn logo vẫn bo góc nhờ border-radius của img */
   overflow: visible;
-  /* Hiệu ứng rung nhẹ thu hút người dùng */
   animation: chat-bounce 2.6s ease-in-out infinite;
   animation-delay: 1s;
+}
+
+.chat-button-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 14px 4px 10px;
+  color: #fff;
+}
+
+.chat-button-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-button-icon :deep(svg) {
+  width: 20px;
+  height: 20px;
+}
+
+.chat-button-text-group {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.chat-button-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chat-button-subtitle {
+  font-size: 11px;
+  opacity: 0.9;
 }
 
 .chat-button:hover {
   transform: scale(1.1);
   box-shadow: 0 6px 25px rgba(179, 0, 15, 0.6);
   border-color: #ff0000;
-  /* Dừng rung khi người dùng đang tương tác */
   animation-play-state: paused;
 }
 
@@ -258,6 +586,115 @@ const formatTime = (date: Date) => {
   background: white;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+.chat-window.with-sidebar {
+  width: 700px;
+}
+
+.chat-sidebar {
+  width: 280px;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+}
+
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+}
+
+.sidebar-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  color: #333;
+}
+
+.new-chat-button {
+  color: #b3000f;
+}
+
+.sessions-list {
+  padding: 8px;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-bottom: 4px;
+}
+
+.session-item:hover {
+  background: #e9ecef;
+}
+
+.session-item.active {
+  background: #000000;
+  color: white;
+}
+
+.session-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(179, 0, 15, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.session-item.active .session-icon {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.session-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-date {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.loading-sessions,
+.empty-sessions {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+.empty-sessions p {
+  margin-bottom: 12px;
+}
+
+.chat-main {
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -315,6 +752,13 @@ const formatTime = (date: Date) => {
   gap: 12px;
 }
 
+.loading-messages {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-size: 14px;
+}
+
 .message {
   display: flex;
   max-width: 80%;
@@ -365,7 +809,6 @@ const formatTime = (date: Date) => {
   font-size: 14px;
   line-height: 1.5;
   word-wrap: break-word;
-  /* Giữ xuống dòng từ trường reply (kí tự \n, \n\n) để khách đọc dễ hơn */
   white-space: pre-line;
 }
 
@@ -374,6 +817,46 @@ const formatTime = (date: Date) => {
   opacity: 0.7;
   margin-top: 4px;
   display: block;
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #666;
+  display: inline-block;
+  animation: typing-bounce 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0;
+}
+
+@keyframes typing-bounce {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .chat-input-area {
@@ -437,11 +920,8 @@ const formatTime = (date: Date) => {
   transform: scale(0);
 }
 
-/* Hiệu ứng rung/bounce cho nút chat */
 @keyframes chat-bounce {
-  0%,
-  60%,
-  100% {
+  0%, 60%, 100% {
     transform: translate3d(0, 0, 0);
   }
   65% {
@@ -459,11 +939,72 @@ const formatTime = (date: Date) => {
 }
 
 /* Responsive */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .chat-window {
-    width: calc(100vw - 48px);
-    height: calc(100vh - 100px);
-    max-height: 600px;
+    width: calc(100vw - 32px);
+    height: calc(100vh - 80px);
+    max-height: none;
+    border-radius: 14px;
+  }
+
+  .chat-window.with-sidebar {
+    width: calc(100vw - 32px);
+    flex-direction: column;
+  }
+
+  .chat-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    max-height: 40%;
+  }
+
+  .sessions-list {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    padding: 8px 12px 12px;
+    overflow-x: auto;
+  }
+
+  .session-item {
+    min-width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-button {
+    min-width: 52px;
+    height: 52px;
+    padding: 0;
+  }
+
+  .chat-button-content {
+    padding: 0;
+  }
+
+  .chat-button-text-group {
+    display: none;
+  }
+
+  .chat-button-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .chat-window {
+    width: calc(100vw - 24px);
+    height: calc(100vh - 72px);
+    max-height: none;
+  }
+  
+  .chat-window.with-sidebar {
+    width: calc(100vw - 24px);
+  }
+  
+  .chat-sidebar {
+    width: 100%;
+    max-height: 35%;
   }
 
   .chat-bubble-container {
@@ -472,4 +1013,3 @@ const formatTime = (date: Date) => {
   }
 }
 </style>
-

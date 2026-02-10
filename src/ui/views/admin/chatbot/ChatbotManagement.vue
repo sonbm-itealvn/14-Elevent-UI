@@ -3,143 +3,162 @@ import { ref, onMounted, h } from 'vue';
 import {
   NDataTable,
   NButton,
-  NInput,
-  NTag,
   useMessage,
   NIcon,
   NCard,
   NModal,
 } from 'naive-ui';
-import { Refresh, Database, FileText, Eye } from '@vicons/tabler';
-import ChatbotService, { type ChatHistory } from '@/core/services/api/chatbot.service';
+import { Refresh, Database, FileText } from '@vicons/tabler';
+import ChatbotService, {
+  type ChatUser,
+  type ChatUserSession,
+  type ChatSessionMessage,
+} from '@/core/services/api/chatbot.service';
 
 const message = useMessage();
 
 const loading = ref(false);
-const chatHistory = ref<ChatHistory[]>([]);
-const pagination = ref({
-  page: 1,
-  pageSize: 10,
-  total: 0,
-  showSizePicker: true,
-  pageSizes: [10, 20, 50, 100],
-});
+const users = ref<ChatUser[]>([]);
+const tablePagination = ref({ pageSize: 10 });
 
-const filters = ref({
-  conversationId: '',
-  userEmail: '',
-});
-
-const showDetailModal = ref(false);
-const selectedChat = ref<ChatHistory | null>(null);
 const updatingProducts = ref(false);
 const updatingDocuments = ref(false);
 
-const columns = [
+// Modal sessions theo user
+const showSessionsModal = ref(false);
+const loadingSessions = ref(false);
+const selectedUser = ref<ChatUser | null>(null);
+const userSessions = ref<ChatUserSession[]>([]);
+
+// Modal chi tiết messages theo session
+const showMessagesModal = ref(false);
+const loadingMessages = ref(false);
+const selectedSession = ref<ChatUserSession | null>(null);
+const sessionMessages = ref<ChatSessionMessage[]>([]);
+
+const userColumns = [
   {
     title: 'ID',
     key: 'id',
-    width: 100,
+    width: 80,
   },
   {
-    title: 'Conversation ID',
-    key: 'conversationId',
-    width: 200,
-    render: (row: ChatHistory) => {
-      return h('div', { class: 'font-mono text-xs' }, row.conversationId);
+    title: 'Người dùng',
+    key: 'fullName',
+    width: 260,
+    render: (row: ChatUser) => {
+      const avatar = (row as any).avatar;
+      const name = row.fullName || '-';
+      const email = row.email || '-';
+      return h(
+        'div',
+        { class: 'flex items-center gap-3' },
+        [
+          avatar
+            ? h('img', {
+                src: avatar,
+                alt: name,
+                class: 'w-8 h-8 rounded-full object-cover border border-gray-200',
+              })
+            : h(
+                'div',
+                {
+                  class:
+                    'w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-500',
+                },
+                name.charAt(0).toUpperCase()
+              ),
+          h('div', { class: 'flex flex-col' }, [
+            h('span', { class: 'font-medium text-gray-900 text-sm' }, name),
+            h('span', { class: 'text-xs text-gray-500' }, email),
+          ]),
+        ]
+      );
     },
   },
   {
     title: 'Email người dùng',
-    key: 'userEmail',
+    key: 'email',
+    width: 220,
+    render: (row: ChatUser) => row.email || '-',
+  },
+  {
+    title: 'Số cuộc trò chuyện',
+    key: 'sessionCount',
+    width: 160,
+    render: (row: ChatUser) =>
+      row.sessionCount !== undefined ? row.sessionCount : '-',
+  },
+  {
+    title: 'Thời gian gần nhất',
+    key: 'lastChatTime',
     width: 200,
-    render: (row: ChatHistory) => row.userEmail || '-',
-  },
-  {
-    title: 'Tin nhắn',
-    key: 'message',
-    width: 250,
-    ellipsis: {
-      tooltip: true,
-    },
-  },
-  {
-    title: 'Phản hồi',
-    key: 'reply',
-    width: 300,
-    ellipsis: {
-      tooltip: true,
-    },
-  },
-  {
-    title: 'Agent',
-    key: 'agent',
-    width: 150,
-    render: (row: ChatHistory) => {
-      if (!row.agent) return '-';
-      return h(NTag, { type: 'info', size: 'small' }, { default: () => row.agent });
-    },
-  },
-  {
-    title: 'Thời gian',
-    key: 'createdAt',
-    width: 180,
-    render: (row: ChatHistory) => {
-      return new Date(row.createdAt).toLocaleString('vi-VN');
-    },
-  },
-  {
-    title: 'Thao tác',
-    key: 'actions',
-    width: 100,
-    render: (row: ChatHistory) => {
-      return h(
-        NButton,
-        {
-          size: 'small',
-          circle: true,
-          tertiary: true,
-          quaternary: true,
-          onClick: () => handleViewDetail(row),
-        },
-        {
-          icon: () => h(NIcon, null, { default: () => h(Eye) }),
-        }
+    render: (row: ChatUser) => {
+      const value = row.lastChatTime || (row as any).lastChatTime;
+      if (!value) return '-';
+      const date = new Date(
+        value.toString().includes('T') ? value : value.toString().replace(' ', 'T')
       );
+      return date.toLocaleString('vi-VN');
     },
   },
 ];
 
-const loadChatHistory = async () => {
+const sessionColumns = [
+  {
+    title: 'ID',
+    key: 'id',
+    width: 80,
+  },
+  {
+    title: 'Conversation ID',
+    key: 'conversationId',
+    width: 260,
+  },
+  {
+    title: 'Tiêu đề',
+    key: 'title',
+    width: 260,
+    render: (row: ChatUserSession) => row.title || 'Không có tiêu đề',
+  },
+  {
+    title: 'Thời gian tạo',
+    key: 'createdAt',
+    width: 200,
+    render: (row: ChatUserSession) => {
+      const value = row.createdAt;
+      const date = new Date(
+        value.toString().includes('T') ? value : value.toString().replace(' ', 'T')
+      );
+      return date.toLocaleString('vi-VN');
+    },
+  },
+];
+
+// Click cả dòng để mở chi tiết (thay vì nút riêng lẻ)
+const userRowProps = (row: ChatUser) => ({
+  style: 'cursor: pointer;',
+  onClick: () => handleViewSessions(row),
+});
+
+const sessionRowProps = (row: ChatUserSession) => ({
+  style: 'cursor: pointer;',
+  onClick: () => handleViewMessages(row),
+});
+
+const loadUsers = async () => {
   try {
     loading.value = true;
-    const params: any = {
-      page: pagination.value.page - 1,
-      size: pagination.value.pageSize,
-    };
-
-    if (filters.value.conversationId) {
-      params.conversationId = filters.value.conversationId;
-    }
-    if (filters.value.userEmail) {
-      params.userEmail = filters.value.userEmail;
-    }
-
-    const response = await ChatbotService.getChatHistory(params);
-    chatHistory.value = response.content;
-    pagination.value.total = response.totalElements;
-    loading.value = false;
+    const data = await ChatbotService.getChatUsers();
+    users.value = data;
   } catch (error: any) {
     message.error(
-      error.response?.data?.message || 'Lỗi khi tải lịch sử chat'
+      error.response?.data?.message ||
+        'Lỗi khi tải danh sách người dùng có lịch sử chat'
     );
+  } finally {
     loading.value = false;
   }
-};
-
-const handleViewDetail = (chat: ChatHistory) => {
-  selectedChat.value = chat;
-  showDetailModal.value = true;
 };
 
 const handleUpdateProducts = async () => {
@@ -149,7 +168,8 @@ const handleUpdateProducts = async () => {
     message.success('Cập nhật dữ liệu sản phẩm thành công');
   } catch (error: any) {
     message.error(
-      error.response?.data?.message || 'Lỗi khi cập nhật dữ liệu sản phẩm'
+      error.response?.data?.message ||
+        'Lỗi khi cập nhật dữ liệu sản phẩm'
     );
   } finally {
     updatingProducts.value = false;
@@ -163,29 +183,56 @@ const handleUpdateDocuments = async () => {
     message.success('Cập nhật tài liệu hệ thống thành công');
   } catch (error: any) {
     message.error(
-      error.response?.data?.message || 'Lỗi khi cập nhật tài liệu hệ thống'
+      error.response?.data?.message ||
+        'Lỗi khi cập nhật tài liệu hệ thống'
     );
   } finally {
     updatingDocuments.value = false;
   }
 };
 
-const handleFilter = () => {
-  pagination.value.page = 1;
-  loadChatHistory();
+const handleRefresh = () => {
+  loadUsers();
 };
 
-const handleResetFilter = () => {
-  filters.value = {
-    conversationId: '',
-    userEmail: '',
-  };
-  pagination.value.page = 1;
-  loadChatHistory();
+const handleViewSessions = async (user: ChatUser) => {
+  selectedUser.value = user;
+  showSessionsModal.value = true;
+  loadingSessions.value = true;
+  try {
+    const data = await ChatbotService.getUserSessions(user.id);
+    userSessions.value = data;
+  } catch (error: any) {
+    message.error(
+      error.response?.data?.message ||
+        'Lỗi khi tải danh sách session của người dùng'
+    );
+  } finally {
+    loadingSessions.value = false;
+  }
+};
+
+const handleViewMessages = async (session: ChatUserSession) => {
+  selectedSession.value = session;
+  showMessagesModal.value = true;
+  loadingMessages.value = true;
+  try {
+    const data = await ChatbotService.getSessionMessages(
+      session.conversationId
+    );
+    sessionMessages.value = data;
+  } catch (error: any) {
+    message.error(
+      error.response?.data?.message ||
+        'Lỗi khi tải lịch sử chat của session'
+    );
+  } finally {
+    loadingMessages.value = false;
+  }
 };
 
 onMounted(() => {
-  loadChatHistory();
+  loadUsers();
 });
 </script>
 
@@ -217,98 +264,202 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Filters -->
+    <!-- Danh sách người dùng có lịch sử chat -->
     <NCard class="mb-4">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <NInput
-          v-model:value="filters.conversationId"
-          placeholder="Tìm kiếm Conversation ID"
-          clearable
-          @keyup.enter="handleFilter"
-        />
-        <NInput
-          v-model:value="filters.userEmail"
-          placeholder="Tìm kiếm email người dùng"
-          clearable
-          @keyup.enter="handleFilter"
-        />
-        <div class="flex gap-2">
-          <NButton type="primary" @click="handleFilter">
-            <template #icon>
-              <NIcon><Refresh /></NIcon>
-            </template>
-            Lọc
-          </NButton>
-          <NButton @click="handleResetFilter">Đặt lại</NButton>
-        </div>
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-lg font-semibold">Người dùng có lịch sử chat</h2>
+        <NButton size="small" tertiary @click="handleRefresh">
+          <template #icon>
+            <NIcon><Refresh /></NIcon>
+          </template>
+          Tải lại
+        </NButton>
       </div>
+      <p class="text-sm text-gray-500 mb-3">
+        Danh sách người dùng đã từng trò chuyện với chatbot. Nhấn
+        \"Xem sessions\" để xem các cuộc trò chuyện (session) của từng người dùng.
+      </p>
+
+      <NDataTable
+        :columns="userColumns"
+        :data="users"
+        :loading="loading"
+        :pagination="tablePagination"
+        :row-props="userRowProps"
+        striped
+        bordered
+      />
     </NCard>
 
-    <!-- Chat History Table -->
-    <NDataTable
-      :columns="columns"
-      :data="chatHistory"
-      :loading="loading"
-      :pagination="pagination"
-      @update:page="(page) => { pagination.page = page; loadChatHistory(); }"
-      @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadChatHistory(); }"
-      striped
-      bordered
-    />
-
-    <!-- Detail Modal -->
+    <!-- Modal danh sách sessions theo user -->
     <NModal
-      v-model:show="showDetailModal"
-      title="Chi tiết cuộc trò chuyện"
+      v-model:show="showSessionsModal"
       preset="dialog"
+      :title="
+        selectedUser
+          ? `Sessions của ${selectedUser.fullName || selectedUser.email}`
+          : 'Sessions của người dùng'
+      "
       style="width: 800px"
     >
-      <div v-if="selectedChat" class="space-y-4">
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <strong>Conversation ID:</strong>
-            <div class="font-mono text-xs mt-1">{{ selectedChat.conversationId }}</div>
+      <div>
+        <p class="text-sm text-gray-500 mb-3">
+          Danh sách các session chat của người dùng.
+        </p>
+        <NDataTable
+          :columns="sessionColumns"
+          :data="userSessions"
+          :loading="loadingSessions"
+          :pagination="false"
+          :row-props="sessionRowProps"
+          striped
+          bordered
+        />
+      </div>
+    </NModal>
+
+    <!-- Modal lịch sử tin nhắn của một session -->
+    <NModal
+      v-model:show="showMessagesModal"
+      preset="dialog"
+      :title="
+        selectedSession
+          ? `Lịch sử chat - ${selectedSession.title || selectedSession.conversationId}`
+          : 'Lịch sử chat của session'
+      "
+      style="width: 900px"
+    >
+      <div>
+        <p class="text-sm text-gray-500 mb-3">
+          Chi tiết tin nhắn trong session. Sender = USER là khách hàng, BOT là chatbot.
+        </p>
+        <div class="session-chat-wrapper">
+          <div v-if="loadingMessages" class="session-chat-loading">
+            Đang tải lịch sử chat...
           </div>
-          <div>
-            <strong>Email người dùng:</strong>
-            <div class="mt-1">{{ selectedChat.userEmail || '-' }}</div>
-          </div>
-          <div>
-            <strong>Agent:</strong>
-            <div class="mt-1">
-              <NTag v-if="selectedChat.agent" type="info" size="small">
-                {{ selectedChat.agent }}
-              </NTag>
-              <span v-else>-</span>
+          <div v-else class="session-chat-container">
+            <div
+              v-for="(msg, index) in sessionMessages"
+              :key="index"
+              :class="[
+                'session-message',
+                msg.sender?.toString().toUpperCase() === 'USER'
+                  ? 'session-message-user'
+                  : 'session-message-bot'
+              ]"
+            >
+              <div class="session-message-content">
+                <p class="session-message-text">{{ msg.content }}</p>
+                <span class="session-message-meta">
+                  <span class="session-message-sender">
+                    {{ msg.sender?.toString().toUpperCase() === 'USER' ? 'USER' : 'BOT' }}
+                  </span>
+                  <span class="session-message-time">
+                    {{
+                      new Date(
+                        msg.createdAt.toString().includes('T')
+                          ? msg.createdAt
+                          : msg.createdAt.toString().replace(' ', 'T')
+                      ).toLocaleString('vi-VN')
+                    }}
+                  </span>
+                </span>
+              </div>
             </div>
-          </div>
-          <div>
-            <strong>Thời gian:</strong>
-            <div class="mt-1">{{ new Date(selectedChat.createdAt).toLocaleString('vi-VN') }}</div>
-          </div>
-        </div>
-
-        <div class="border-t pt-4">
-          <strong>Tin nhắn người dùng:</strong>
-          <div class="mt-2 p-3 bg-gray-50 rounded border">
-            <p class="whitespace-pre-line">{{ selectedChat.message }}</p>
-          </div>
-        </div>
-
-        <div class="border-t pt-4">
-          <strong>Phản hồi từ bot:</strong>
-          <div class="mt-2 p-3 bg-blue-50 rounded border">
-            <p class="whitespace-pre-line">{{ selectedChat.reply }}</p>
+            <div v-if="sessionMessages.length === 0" class="session-chat-empty">
+              Chưa có tin nhắn nào trong session này.
+            </div>
           </div>
         </div>
       </div>
-      <template #action>
-        <NButton @click="showDetailModal = false">Đóng</NButton>
-      </template>
     </NModal>
   </div>
 </template>
 
 <style scoped>
+.session-chat-wrapper {
+  max-height: 520px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.session-chat-container {
+  max-height: 520px;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.session-chat-loading,
+.session-chat-empty {
+  padding: 24px;
+  text-align: center;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.session-message {
+  display: flex;
+  max-width: 80%;
+}
+
+.session-message-user {
+  align-self: flex-end;
+  justify-content: flex-end;
+}
+
+.session-message-bot {
+  align-self: flex-start;
+  justify-content: flex-start;
+}
+
+.session-message-content {
+  padding: 10px 14px;
+  border-radius: 16px;
+  position: relative;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.session-message-user .session-message-content {
+  background: #111827;
+  color: #f9fafb;
+  border-bottom-right-radius: 4px;
+}
+
+.session-message-bot .session-message-content {
+  background: #ffffff;
+  color: #111827;
+  border-bottom-left-radius: 4px;
+}
+
+.session-message-text {
+  margin: 0;
+  white-space: pre-line;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.session-message-meta {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.session-message-sender {
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.session-message-time {
+  color: #6b7280;
+}
 </style>
+
 
