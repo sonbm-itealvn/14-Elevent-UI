@@ -107,7 +107,7 @@ class ChatbotService {
   }
 
   async updateProductData(): Promise<void> {
-    await this.httpService.post("/api/admin/chatbot/update-products", null);
+    await this.httpService.post("/api/admin/products/sync", null);
   }
 
   async updateSystemDocuments(): Promise<void> {
