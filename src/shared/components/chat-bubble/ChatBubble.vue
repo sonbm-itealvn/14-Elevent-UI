@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { Close, Send } from '@vicons/ionicons5';
 import { Plus, MessageCircle } from '@vicons/tabler';
 import { NIcon, NButton, NInput, NScrollbar, useMessage } from 'naive-ui';
@@ -26,8 +26,13 @@ const loadingSessions = ref(false);
 const loadingMessages = ref(false);
 const sessions = ref<ChatSession[]>([]);
 const selectedSession = ref<ChatSession | null>(null);
+const isMobile = ref(false);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
+
+const checkMobile = () => {
+  isMobile.value = typeof window !== 'undefined' && window.innerWidth <= 768;
+};
 
 // Welcome message khi chưa có conversation
 const welcomeMessage: Message = {
@@ -299,10 +304,19 @@ watch(isAuthenticated, (newVal) => {
   }
 });
 
-// Initialize messages
+// Initialize messages + mobile check
 onMounted(() => {
   if (!isAuthenticated.value) {
     messages.value = [welcomeMessage];
+  }
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
+});
+
+import { onUnmounted } from 'vue';
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', checkMobile);
   }
 });
 </script>
@@ -311,9 +325,9 @@ onMounted(() => {
   <div class="chat-bubble-container">
     <!-- Chat Window -->
     <Transition name="chat-window">
-      <div v-if="isOpen" class="chat-window" :class="{ 'with-sidebar': isAuthenticated }">
-        <!-- Sidebar cho user đã đăng nhập -->
-        <div v-if="isAuthenticated" class="chat-sidebar">
+      <div v-if="isOpen" class="chat-window" :class="{ 'with-sidebar': isAuthenticated && !isMobile }">
+        <!-- Sidebar: chỉ hiện trên desktop (ẩn trên mobile để giao diện gọn) -->
+        <div v-if="isAuthenticated && !isMobile" class="chat-sidebar">
           <div class="sidebar-header">
             <h4 class="sidebar-title">Cuộc trò chuyện</h4>
             <NButton
@@ -365,7 +379,7 @@ onMounted(() => {
         <div class="chat-main">
           <!-- Header -->
           <div class="chat-header">
-            <div class="flex items-center gap-3">
+            <div class="chat-header-inner">
               <div class="chat-avatar">
                 <img
                   src="/14elevent.jpg"
@@ -373,29 +387,45 @@ onMounted(() => {
                   class="w-full h-full object-contain rounded-full"
                 />
               </div>
-              <div>
+              <div class="chat-header-text">
                 <h3 class="chat-title">14Elevent</h3>
-                <p class="chat-subtitle">Chúng tôi sẵn sàng trợ giúp. Vui lòng hỏi chúng tôi bất cứ điều gì hoặc chia sẻ phản hồi của bạn</p>
+                <p class="chat-subtitle">Chúng tôi sẵn sàng trợ giúp. Hỏi chúng tôi bất cứ điều gì.</p>
               </div>
             </div>
-            <NButton
-              quaternary
-              circle
-              size="small"
-              @click="toggleChat"
-              class="close-button"
-            >
-              <template #icon>
-                <NIcon>
-                  <Close />
-                </NIcon>
-              </template>
-            </NButton>
+            <div class="chat-header-actions">
+              <!-- Trên mobile khi đã đăng nhập: nút tạo cuộc trò chuyện mới -->
+              <NButton
+                v-if="isAuthenticated && isMobile"
+                quaternary
+                circle
+                size="small"
+                @click="createNewConversation"
+                class="header-action-btn"
+                title="Cuộc trò chuyện mới"
+              >
+                <template #icon>
+                  <NIcon><Plus /></NIcon>
+                </template>
+              </NButton>
+              <NButton
+                quaternary
+                circle
+                size="small"
+                @click="toggleChat"
+                class="close-button"
+              >
+                <template #icon>
+                  <NIcon>
+                    <Close />
+                  </NIcon>
+                </template>
+              </NButton>
+            </div>
           </div>
 
           <!-- Messages -->
           <div class="chat-messages">
-            <NScrollbar style="max-height: 400px;">
+            <NScrollbar class="chat-messages-scroll">
               <div class="messages-container">
                 <div v-if="loadingMessages" class="loading-messages">
                   Đang tải tin nhắn...
@@ -575,6 +605,7 @@ onMounted(() => {
 .chat-window {
   width: 380px;
   height: 600px;
+  min-width: 0;
   background: white;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
@@ -589,10 +620,13 @@ onMounted(() => {
 
 .chat-sidebar {
   width: 280px;
+  min-width: 0;
+  flex-shrink: 0;
   border-right: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
   background: #f8f9fa;
+  overflow: hidden;
 }
 
 .sidebar-header {
@@ -687,44 +721,76 @@ onMounted(() => {
 
 .chat-main {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
 .chat-header {
-  background: #000000;
-  border-bottom: 3px solid #b3000f;
+  background: #1a1a1a;
+  border-bottom: 2px solid rgba(179, 0, 15, 0.5);
   color: white;
-  padding: 20px;
+  padding: 14px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
+}
+
+.chat-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-header-text {
+  min-width: 0;
+}
+
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.header-action-btn {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .chat-avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 2px solid #b3000f;
+  border: 1px solid rgba(179, 0, 15, 0.6);
 }
 
 .chat-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   margin: 0;
   color: white;
+  line-height: 1.2;
 }
 
 .chat-subtitle {
-  font-size: 12px;
-  margin: 4px 0 0 0;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  margin: 2px 0 0 0;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
 }
 
 .close-button {
@@ -733,9 +799,21 @@ onMounted(() => {
 
 .chat-messages {
   flex: 1;
+  min-height: 0;
   padding: 16px;
-  background: #f8f9fa;
-  overflow-y: auto;
+  background: #f5f5f5;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-messages-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-messages-scroll :deep(.n-scrollbar-container) {
+  max-height: 100%;
 }
 
 .messages-container {
@@ -866,14 +944,14 @@ onMounted(() => {
 
 .send-button {
   flex-shrink: 0;
-  background: #b3000f;
-  border: 2px solid #b3000f;
-  color: white;
+  background: #b3000f !important;
+  border-color: #b3000f !important;
+  color: white !important;
 }
 
-.send-button:hover {
-  background: #dc2626;
-  border-color: #dc2626;
+.send-button:hover:not(:disabled) {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
 }
 
 .send-button:disabled {
@@ -930,37 +1008,34 @@ onMounted(() => {
   }
 }
 
-/* Responsive */
+/* Responsive - mobile: chỉ khung chat, gọn gàng */
 @media (max-width: 768px) {
   .chat-window {
-    width: calc(100vw - 32px);
-    height: calc(100vh - 80px);
-    max-height: none;
+    width: min(400px, calc(100vw - 32px));
+    height: min(72vh, 580px);
+    max-height: 580px;
     border-radius: 14px;
   }
 
   .chat-window.with-sidebar {
-    width: calc(100vw - 32px);
-    flex-direction: column;
+    width: min(400px, calc(100vw - 32px));
   }
 
-  .chat-sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid #e5e7eb;
-    max-height: 40%;
+  .chat-header {
+    padding: 10px 12px;
   }
 
-  .sessions-list {
-    display: flex;
-    flex-direction: row;
-    gap: 8px;
-    padding: 8px 12px 12px;
-    overflow-x: auto;
+  .chat-subtitle {
+    white-space: normal;
+    max-width: 180px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 
-  .session-item {
-    min-width: 200px;
+  .chat-messages :deep(.n-scrollbar-container) {
+    max-height: 100%;
   }
 }
 
@@ -985,18 +1060,17 @@ onMounted(() => {
   }
 
   .chat-window {
-    width: calc(100vw - 24px);
-    height: calc(100vh - 72px);
-    max-height: none;
+    width: min(360px, calc(100vw - 24px));
+    height: min(68vh, 520px);
+    max-height: 520px;
   }
-  
+
   .chat-window.with-sidebar {
-    width: calc(100vw - 24px);
+    width: min(360px, calc(100vw - 24px));
   }
-  
-  .chat-sidebar {
-    width: 100%;
-    max-height: 35%;
+
+  .chat-subtitle {
+    max-width: 140px;
   }
 
   .chat-bubble-container {
