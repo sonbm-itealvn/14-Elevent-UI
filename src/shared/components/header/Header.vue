@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, h, onMounted } from 'vue';
+import { computed, ref, h, onMounted, inject } from 'vue';
 import { useRouter } from 'vue-router';
 import { NLayoutHeader, NSpace, NDropdown, NButton, NBadge } from 'naive-ui';
 import Logo from '@/shared/components/logo/Logo.vue';
@@ -13,6 +13,9 @@ import HeaderMenu from './HeaderMenu.vue';
 import { isDesktop } from '@/shared/composable/useWindowResize';
 import type { Header } from '@/core/models/header.model';
 
+/** Chỉ có trong DashboardLayout: dùng để hamburger mở/đóng sidebar trên mobile */
+const dashboardSidebar = inject<{ toggle: () => void } | null>('dashboardSidebar', null);
+
 const themeStore = useThemeStore();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
@@ -20,9 +23,14 @@ const router = useRouter();
 const theme = computed(() => themeStore.getTheme);
 const isLight = computed(() => theme.value === 'light');
 const showDropdown = ref(false);
-const props = defineProps<{
-  items?: Header[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    items?: Header[];
+    /** Ẩn menu điều hướng (chỉ hiện logo + icon), dùng cho layout admin có sidebar */
+    hideNavMenu?: boolean;
+  }>(),
+  { hideNavMenu: false }
+);
 
 const handleLoginClick = () => {
   router.push({ name: 'Login' });
@@ -68,31 +76,47 @@ const dropdownOptions = [
     ]"
   >
     <n-space class="flex items-center flex-nowrap! gap-3">
-      <n-dropdown
-        v-if="!isDesktop"
-        trigger="click"
-        :show="showDropdown"
-        @update:show="showDropdown = $event"
-        :options="dropdownOptions"
-        placement="bottom-end"
-      >
+      <!-- Mobile: hamburger — khi có dashboardSidebar (admin) thì toggle sidebar, không thì mở dropdown menu -->
+      <template v-if="!isDesktop">
         <Button
+          v-if="props.hideNavMenu && dashboardSidebar"
           class="h-11 w-11 flex items-center justify-center rounded-full transition-colors duration-150"
           :class="isLight
             ? 'bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-800'
             : 'bg-white/10 hover:bg-white/20 !border-none text-white'"
+          @click="dashboardSidebar.toggle()"
         >
           <template #icon>
             <Menu2 />
           </template>
         </Button>
-      </n-dropdown>
+        <n-dropdown
+          v-else-if="!props.hideNavMenu"
+          trigger="click"
+          :show="showDropdown"
+          @update:show="showDropdown = $event"
+          :options="dropdownOptions"
+          placement="bottom-end"
+        >
+          <Button
+            class="h-11 w-11 flex items-center justify-center rounded-full transition-colors duration-150"
+            :class="isLight
+              ? 'bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-800'
+              : 'bg-white/10 hover:bg-white/20 !border-none text-white'"
+          >
+            <template #icon>
+              <Menu2 />
+            </template>
+          </Button>
+        </n-dropdown>
+      </template>
       <Logo class="h-12" />
     </n-space>
 
-    <div class="hidden lg:flex flex-1 justify-center">
+    <div v-if="!props.hideNavMenu" class="hidden lg:flex flex-1 justify-center">
       <HeaderMenu :mode="'horizontal'" :data="props.items ?? []" />
     </div>
+    <div v-else class="flex-1" />
 
     <n-space>
       <div class="flex items-center gap-2">

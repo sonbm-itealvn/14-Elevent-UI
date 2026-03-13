@@ -8,16 +8,30 @@ import { isDesktop, isMobile } from '@/shared/composable/useWindowResize';
 
 const props = withDefaults(defineProps<{
   menuData?: Header[];
+  /** Controlled: parent truyền collapsed (dùng trong DashboardLayout để sync với hamburger header) */
+  collapsed?: boolean;
 }>(), {
   menuData: () => headerConstants,
+  collapsed: undefined,
 });
 
-// Trên mobile: dùng state local để bấm trigger mới mở/đóng được. Trên desktop: luôn mở.
+const emit = defineEmits<{ 'update:collapsed': [value: boolean] }>();
+
+// Trên mobile: controlled từ parent nếu có props.collapsed, không thì dùng state local.
 const mobileCollapsed = ref(true);
-const collapsed = computed(() => (isDesktop.value ? false : mobileCollapsed.value));
+const isControlled = computed(() => props.collapsed !== undefined && props.collapsed !== null);
+const collapsed = computed(() => {
+  if (isDesktop.value) return false;
+  if (isControlled.value) return props.collapsed ?? true;
+  return mobileCollapsed.value;
+});
 
 function handleUpdateCollapsed(value: boolean) {
-  mobileCollapsed.value = value;
+  if (isControlled.value) {
+    emit('update:collapsed', value);
+  } else {
+    mobileCollapsed.value = value;
+  }
 }
 
 // Khi chuyển sang desktop thì đóng state mobile để lần sau vào mobile bắt đầu đóng
