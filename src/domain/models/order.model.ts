@@ -35,12 +35,17 @@ export interface OrderItem {
   id: number;
   productId: number;
   productVariantId: number;
+  /** Slug sản phẩm để link sang trang chi tiết (API trả về) */
+  productSlug?: string;
   productName: string;
   sku: string;
   imageUrl?: string;
   attributes?: Record<string, any>;
   quantity: number;
+  /** Giá đơn vị thực trả (đã áp dụng sale) */
   unitPrice: number;
+  /** Giá gốc ban đầu chưa giảm (hiển thị gạch ngang khi đang sale) */
+  originalPrice?: number;
   lineTotal: number;
 }
 

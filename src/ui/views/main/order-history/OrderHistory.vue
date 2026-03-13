@@ -209,8 +209,8 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-[#f7f7f7]">
     <!-- Header -->
-    <section class="bg-black text-white py-12">
-      <div class="max-w-6xl mx-auto px-6 md:px-10 lg:px-14">
+    <section class="bg-black text-white py-8 sm:py-12">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 lg:px-14">
         <button
           @click="router.push({ name: 'Home' })"
           class="mb-6 flex items-center gap-2 text-neutral-300 hover:text-white transition-colors"
@@ -224,28 +224,93 @@ onMounted(() => {
     </section>
 
     <!-- Content -->
-    <section class="max-w-6xl mx-auto px-6 md:px-10 lg:px-14 py-8">
+    <section class="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 lg:px-14 py-6 sm:py-8">
       <!-- Filter Section -->
-      <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div class="flex flex-col md:flex-row gap-4 items-end">
-          <div class="flex-1">
-            <label class="block text-sm font-semibold text-neutral-700 mb-2">
-              Lọc theo trạng thái
-            </label>
-            <n-select
-              v-model:value="statusFilter"
-              :options="statusOptions"
-              placeholder="Chọn trạng thái"
-              clearable
-              @update:value="handleStatusChange"
-              class="w-full"
-            />
-          </div>
+      <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+        <label class="block text-sm font-semibold text-neutral-700 mb-2">
+          Lọc theo trạng thái
+        </label>
+        <n-select
+          v-model:value="statusFilter"
+          :options="statusOptions"
+          placeholder="Chọn trạng thái"
+          clearable
+          @update:value="handleStatusChange"
+          class="order-status-select w-full min-w-0"
+        />
+      </div>
+
+      <!-- Mobile: Order cards -->
+      <div class="block md:hidden space-y-4">
+        <n-spin :show="loading">
+          <template v-if="!loading && orders.length === 0">
+            <div class="bg-white rounded-lg shadow-sm py-16">
+              <n-empty description="Chưa có đơn hàng nào">
+                <template #extra>
+                  <n-button type="primary" @click="router.push({ name: 'Products' })">
+                    Mua sắm ngay
+                  </n-button>
+                </template>
+              </n-empty>
+            </div>
+          </template>
+          <template v-else>
+            <div
+              v-for="order in orders"
+              :key="order.id"
+              class="order-card bg-white rounded-lg shadow-sm overflow-hidden border border-neutral-200 active:bg-neutral-50"
+              @click="handleViewDetail(order)"
+            >
+              <div class="p-4 flex flex-col gap-3">
+                <div class="flex justify-between items-start gap-2">
+                  <span class="font-semibold text-neutral-900 truncate">
+                    {{ order.orderCode || `#${order.id}` }}
+                  </span>
+                  <n-tag :type="getStatusColor(order.status) as any" size="small" class="flex-shrink-0">
+                    {{ getStatusLabel(order.status) }}
+                  </n-tag>
+                </div>
+                <p class="text-sm text-neutral-500">
+                  {{ formatDate(order.createdAt) }}
+                </p>
+                <div class="flex justify-between items-center pt-2 border-t border-neutral-100">
+                  <span class="text-sm text-neutral-600">Tổng tiền</span>
+                  <span class="font-bold text-red-600">{{ formatPrice(order.totalAmount) }}</span>
+                </div>
+                <n-button
+                  type="primary"
+                  size="small"
+                  block
+                  quaternary
+                  @click.stop="handleViewDetail(order)"
+                >
+                  <template #icon>
+                    <Eye class="h-4 w-4" />
+                  </template>
+                  Xem chi tiết
+                </n-button>
+              </div>
+            </div>
+          </template>
+        </n-spin>
+
+        <div v-if="!loading && orders.length > 0" class="flex justify-center py-4">
+          <n-pagination
+            v-model:page="currentPage"
+            :page-count="pagination.totalPages"
+            :page-size="pagination.size"
+            :item-count="pagination.total"
+            show-size-picker
+            :page-sizes="[10, 20, 50]"
+            @update:page="handlePageChange"
+            @update:page-size="(size) => { pagination.size = size; pagination.page = 0; loadOrders(); }"
+            class="order-pagination-mobile"
+          />
         </div>
       </div>
 
-      <!-- Orders Table -->
-      <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+      <!-- Desktop: Orders Table -->
+      <div class="hidden md:block bg-white rounded-lg shadow-sm overflow-hidden">
         <n-spin :show="loading">
           <n-data-table
             :columns="columns"
@@ -255,7 +320,7 @@ onMounted(() => {
             :single-line="false"
             class="order-history-table"
           />
-          
+
           <div v-if="!loading && orders.length === 0" class="py-16">
             <n-empty description="Chưa có đơn hàng nào">
               <template #extra>
@@ -267,7 +332,6 @@ onMounted(() => {
           </div>
         </n-spin>
 
-        <!-- Pagination -->
         <div v-if="!loading && orders.length > 0" class="p-6 border-t border-neutral-200 flex justify-center">
           <n-pagination
             v-model:page="currentPage"
@@ -286,6 +350,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* Desktop table */
 :deep(.order-history-table .n-data-table-th) {
   background-color: #f9fafb;
   font-weight: 600;
@@ -298,6 +363,38 @@ onMounted(() => {
 
 :deep(.order-history-table .n-data-table-tr:hover) {
   background-color: #f9fafb;
+}
+
+/* Mobile: filter select full width, không cắt chữ */
+.order-status-select {
+  min-width: 0;
+}
+:deep(.order-status-select .n-base-selection-label) {
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Mobile: card có thể bấm */
+.order-card {
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+.order-card:active {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Mobile: pagination gọn */
+@media (max-width: 768px) {
+  :deep(.order-pagination-mobile .n-pagination) {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  :deep(.order-pagination-mobile .n-pagination-item),
+  :deep(.order-pagination-mobile .n-pagination-prefix),
+  :deep(.order-pagination-mobile .n-pagination-suffix) {
+    margin: 0;
+  }
 }
 </style>
 

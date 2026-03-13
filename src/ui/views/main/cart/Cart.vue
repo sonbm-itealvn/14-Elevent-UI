@@ -23,20 +23,40 @@
                 <div
                   v-for="item in cartStore.cart?.items"
                   :key="item.id"
-                  class="cart-item flex gap-4 p-4 border-b border-gray-200 last:border-0"
+                  class="cart-item flex flex-col sm:flex-row gap-4 p-4 border-b border-gray-200 last:border-0"
                 >
-                  <div class="flex-1">
-                    <h3 class="font-semibold text-lg mb-1">
-                      {{ item.productName }}
-                    </h3>
-                    <p class="text-sm text-gray-500 mb-2">SKU: {{ item.sku }}</p>
-                    <p class="text-lg font-semibold text-red-600">
-                      {{ formatPrice(item.price) }} VND
-                    </p>
+                  <!-- Ảnh + Nội dung: trên mobile xếp dọc, desktop ngang -->
+                  <div class="flex gap-4 min-w-0 flex-1">
+                    <div class="cart-item-thumb flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center">
+                      <img
+                        v-if="item.imageUrl"
+                        :src="item.imageUrl"
+                        :alt="item.productName"
+                        class="w-full h-full object-contain"
+                      />
+                      <span v-else class="text-gray-400 text-2xl">📦</span>
+                    </div>
+                    <div class="min-w-0 flex-1 flex flex-col justify-center">
+                      <h3 class="font-semibold text-base sm:text-lg mb-0.5 line-clamp-3 break-words">
+                        {{ item.productName }}
+                      </h3>
+                      <p class="text-sm text-gray-500 mb-1">SKU: {{ item.sku }}</p>
+                      <p class="text-base sm:text-lg font-semibold text-red-600 flex flex-wrap items-baseline gap-2">
+                        <template v-if="item.originalPrice != null && item.originalPrice > item.price">
+                          <span class="text-gray-400 font-normal text-sm line-through decoration-gray-400">
+                            {{ formatPrice(item.originalPrice) }}đ
+                          </span>
+                          <span>{{ formatPrice(item.price) }}đ</span>
+                        </template>
+                        <template v-else>
+                          <span>{{ formatPrice(item.price) }}đ</span>
+                        </template>
+                      </p>
+                    </div>
                   </div>
 
-                  <div class="flex items-center gap-4">
-                    <!-- Số lượng -->
+                  <!-- Số lượng + Tổng dòng + Xóa -->
+                  <div class="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0 border-t sm:border-t-0 pt-4 sm:pt-0">
                     <div class="flex items-center gap-2">
                       <n-button
                         size="small"
@@ -45,7 +65,7 @@
                       >
                         -
                       </n-button>
-                      <span class="w-12 text-center">{{ item.quantity }}</span>
+                      <span class="w-10 text-center font-medium">{{ item.quantity }}</span>
                       <n-button
                         size="small"
                         :disabled="cartStore.loading"
@@ -54,15 +74,9 @@
                         +
                       </n-button>
                     </div>
-
-                    <!-- Tổng tiền -->
-                    <div class="w-32 text-right">
-                      <p class="font-semibold text-lg">
-                        {{ formatPrice(item.lineTotal) }} VND
-                      </p>
+                    <div class="font-semibold text-base sm:text-lg text-right min-w-[100px]">
+                      {{ formatPrice(item.lineTotal) }}đ
                     </div>
-
-                    <!-- Xóa -->
                     <n-button
                       type="error"
                       size="small"
@@ -762,6 +776,20 @@ const handleCheckout = async () => {
 
 .cart-item:hover {
   background-color: #f9fafb;
+}
+
+/* Tên sản phẩm: wrap bình thường, tối đa 3 dòng, tránh vỡ layout mobile */
+.cart-item :deep(.line-clamp-3) {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.cart-items {
+  overflow: hidden;
 }
 </style>
 

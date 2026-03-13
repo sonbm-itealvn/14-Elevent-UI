@@ -17,8 +17,8 @@ export interface Product {
   };
   categoryName?: string;
   minPrice?: number;
+  minSalePrice?: number;
   isOnSale?: boolean;
-  salePercentage?: number;
   images?: ProductImage[];
   variants?: ProductVariant[];
   createdAt?: string;

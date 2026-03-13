@@ -163,10 +163,13 @@ onMounted(() => {
                 Sản phẩm
               </h3>
               <div class="space-y-4">
-                <div
+                <component
                   v-for="item in order.items"
                   :key="item.id"
-                  class="flex gap-4 p-4 border border-neutral-200 rounded-lg hover:shadow-md transition-shadow"
+                  :is="item.productSlug ? 'router-link' : 'div'"
+                  :to="item.productSlug ? { name: 'ProductDetail', params: { slug: item.productSlug } } : undefined"
+                  class="flex gap-4 p-4 border border-neutral-200 rounded-lg transition-shadow block"
+                  :class="item.productSlug ? 'cursor-pointer hover:shadow-md hover:border-red-200 hover:bg-red-50/30' : ''"
                 >
                   <div class="w-24 h-24 flex-shrink-0">
                     <n-image
@@ -183,7 +186,7 @@ onMounted(() => {
                       <Package class="h-8 w-8 text-neutral-400" />
                     </div>
                   </div>
-                  <div class="flex-1">
+                  <div class="flex-1 min-w-0">
                     <h4 class="font-semibold text-lg mb-1">{{ item.productName }}</h4>
                     <p class="text-sm text-neutral-500 mb-2">SKU: {{ item.sku }}</p>
                     <div v-if="item.attributes" class="text-sm text-neutral-600 mb-2">
@@ -195,16 +198,25 @@ onMounted(() => {
                         {{ key }}: {{ value }}
                       </span>
                     </div>
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between flex-wrap gap-1">
                       <span class="text-neutral-600">
                         Số lượng: <strong>{{ item.quantity }}</strong>
                       </span>
-                      <span class="text-lg font-semibold text-red-600">
-                        {{ formatPrice(item.lineTotal) }}
-                      </span>
+                      <div class="text-right">
+                        <template v-if="item.originalPrice != null && item.originalPrice > item.unitPrice">
+                          <span class="text-sm text-neutral-400 line-through mr-2">{{ formatPrice(item.originalPrice) }}</span>
+                          <span class="text-lg font-semibold text-red-600">{{ formatPrice(item.unitPrice) }} × {{ item.quantity }} = {{ formatPrice(item.lineTotal) }}</span>
+                        </template>
+                        <template v-else>
+                          <span class="text-lg font-semibold text-red-600">{{ formatPrice(item.unitPrice) }} × {{ item.quantity }} = {{ formatPrice(item.lineTotal) }}</span>
+                        </template>
+                      </div>
                     </div>
+                    <p v-if="item.productSlug" class="text-xs text-red-600 mt-2">
+                      Nhấn để xem chi tiết sản phẩm →
+                    </p>
                   </div>
-                </div>
+                </component>
               </div>
             </div>
 

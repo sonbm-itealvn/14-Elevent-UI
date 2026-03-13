@@ -5,9 +5,11 @@ export interface PublicProduct {
   name: string;
   slug: string;
   thumbnail?: string;
+  /** Giá gốc nhỏ nhất */
   minPrice?: number;
+  /** Giá nhỏ nhất đã áp dụng giảm giá (khi isOnSale) */
+  minSalePrice?: number;
   isOnSale?: boolean;
-  salePercentage?: number;
   brand?: string;
   origin?: string;
 }
@@ -29,9 +31,11 @@ export interface ProductDetail {
   description?: string;
   brand?: string;
   origin?: string;
-  // Thông tin sale (giống PublicProduct, dùng cho hiển thị giá)
+  /** Giá gốc nhỏ nhất */
+  minPrice?: number;
+  /** Giá nhỏ nhất đã áp dụng giảm giá (khi isOnSale) */
+  minSalePrice?: number;
   isOnSale?: boolean;
-  salePercentage?: number;
   weight?: number;
   weightUnit?: string;
   expiryInfo?: string;
@@ -49,7 +53,10 @@ export interface ProductDetail {
   variants?: Array<{
     id: number;
     sku: string;
+    /** Giá gốc */
     price: number;
+    /** Giá đã giảm của biến thể (khi isOnSale) */
+    salePrice?: number;
     stock: number;
     attributes?: Record<string, any>;
     imageUrl?: string;

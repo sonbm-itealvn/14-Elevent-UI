@@ -4,9 +4,15 @@ export interface CartItemResponse {
   productVariantId: number;
   productName: string;
   sku: string;
+  /** Ảnh sản phẩm / biến thể (API trả về) */
+  imageUrl?: string;
   quantity: number;
-  price: number; // Giá tại thời điểm thêm vào giỏ (priceAtAdd)
-  lineTotal: number; // price * quantity
+  /** Giá người dùng thực trả (đã áp dụng sale) */
+  price: number;
+  /** Giá gốc ban đầu chưa giảm của biến thể */
+  originalPrice?: number;
+  /** Tổng phụ dòng = price * quantity (backend tính theo giá sale) */
+  lineTotal: number;
 }
 
 export interface CartResponse {
@@ -33,10 +39,13 @@ export interface CheckoutItemResponse {
   sku: string;
   attributes?: Record<string, any>;
   quantity: number;
-  unitPrice: number; // Giá hiện tại
+  /** Giá đơn vị người dùng thực trả (đã áp dụng sale) */
+  unitPrice: number;
+  /** Giá gốc ban đầu chưa giảm (để hiển thị gạch ngang khi đang sale) */
+  originalPrice?: number;
   lineTotal: number;
-  priceAtAdd: number; // Giá tại thời điểm thêm vào giỏ
-  priceChanged: boolean; // true nếu giá hiện tại khác priceAtAdd
+  priceAtAdd: number;
+  priceChanged: boolean;
 }
 
 export interface VoucherInfo {

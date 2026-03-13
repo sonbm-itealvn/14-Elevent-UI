@@ -249,13 +249,16 @@ const handleTreeSelect = (keys: (string | number)[]) => {
 </script>
 
 <template>
-  <div>
-    <div class="flex justify-between items-center mb-4">
-      <div>
-        <h1 class="text-2xl font-bold">Quản lý danh mục</h1>
-        <p class="text-sm text-neutral-500">Chọn danh mục cha bên trái để lọc danh sách con</p>
+  <div class="min-w-0">
+    <!-- Header: stack trên mobile -->
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+      <div class="min-w-0">
+        <h1 class="text-xl sm:text-2xl font-bold">Quản lý danh mục</h1>
+        <p class="text-sm text-neutral-500 mt-0.5">
+          Chọn danh mục cha để lọc danh sách con
+        </p>
       </div>
-      <NButton type="primary" @click="handleCreate">
+      <NButton type="primary" @click="handleCreate" class="w-full sm:w-auto flex-shrink-0">
         <template #icon>
           <NIcon><Plus /></NIcon>
         </template>
@@ -263,58 +266,67 @@ const handleTreeSelect = (keys: (string | number)[]) => {
       </NButton>
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-      <!-- Tree view -->
-      <div class="border border-neutral-200 bg-white p-3 rounded-md">
+    <div class="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <!-- Cây danh mục: trên mobile có max-height + scroll, không chiếm hết màn -->
+      <div class="border border-neutral-200 bg-white p-3 rounded-lg category-tree-card">
         <div class="flex items-center justify-between mb-2">
           <span class="text-sm font-semibold">Cây danh mục</span>
           <span class="text-xs text-neutral-500">{{ categoryTree.length }} gốc</span>
         </div>
-        <NTree
-          block-line
-          :data="categoryTree"
-          selectable
-          :selected-keys="selectedTreeKey"
-          :default-expand-all="true"
-          @update:selected-keys="handleTreeSelect"
-        />
+        <div class="category-tree-wrap">
+          <NTree
+            block-line
+            :data="categoryTree"
+            selectable
+            :selected-keys="selectedTreeKey"
+            :default-expand-all="true"
+            @update:selected-keys="handleTreeSelect"
+          />
+        </div>
       </div>
 
-      <div>
-        <!-- Bộ lọc nhanh -->
-        <div class="flex flex-col md:flex-row md:items-center gap-3 mb-4">
-          <NInput
-            v-model:value="searchKeyword"
-            placeholder="Tìm theo tên hoặc slug..."
-            clearable
-            class="md:w-1/3"
-          />
-          <NSelect
-            v-model:value="selectedParentFilter"
-            :options="parentFilterOptions as any"
-            placeholder="Lọc theo danh mục cha"
-            class="md:w-1/3"
-            clearable
-          />
-          <div class="text-sm text-neutral-500">
-            Tổng: {{ filteredCategories.length }} danh mục
+      <div class="min-w-0">
+        <!-- Bộ lọc: full width trên mobile, stack -->
+        <div class="flex flex-col gap-3 mb-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+            <NInput
+              v-model:value="searchKeyword"
+              placeholder="Tìm theo tên hoặc slug..."
+              clearable
+              class="w-full min-w-0"
+            />
+            <NSelect
+              v-model:value="selectedParentFilter"
+              :options="parentFilterOptions as any"
+              placeholder="Lọc theo danh mục cha"
+              class="w-full min-w-0"
+              clearable
+            />
+            <div class="text-sm text-neutral-500 sm:text-right">
+              Tổng: {{ filteredCategories.length }} danh mục
+            </div>
           </div>
         </div>
 
-        <NDataTable
-          :columns="columns"
-          :data="filteredCategories"
-          :loading="loading"
-          :pagination="pagination"
-          @update:page="(page) => { pagination.page = page; }"
-          @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; }"
-          striped
-          bordered
-        />
+        <!-- Bảng: scroll ngang trên mobile -->
+        <div class="overflow-x-auto -mx-1">
+          <NDataTable
+            :columns="columns"
+            :data="filteredCategories"
+            :loading="loading"
+            :pagination="pagination"
+            :scroll-x="640"
+            @update:page="(page) => { pagination.page = page; }"
+            @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; }"
+            striped
+            bordered
+            class="categories-table"
+          />
+        </div>
       </div>
     </div>
 
-    <NModal v-model:show="showModal" :title="modalTitle" preset="dialog" style="width: 600px">
+    <NModal v-model:show="showModal" :title="modalTitle" preset="dialog" class="category-modal" style="width: min(600px, 95vw)">
       <NForm ref="formRef" :model="formData" label-placement="left" label-width="120">
         <NFormItem label="Tên danh mục" path="name" :rule="{ required: true, message: 'Vui lòng nhập tên danh mục' }">
           <NInput v-model:value="formData.name" placeholder="Nhập tên danh mục" @update:value="handleNameChange" />
@@ -342,5 +354,28 @@ const handleTreeSelect = (keys: (string | number)[]) => {
 </template>
 
 <style scoped>
+/* Mobile: cây danh mục giới hạn chiều cao, scroll bên trong */
+.category-tree-card {
+  min-width: 0;
+}
+.category-tree-wrap {
+  max-height: 280px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (min-width: 1024px) {
+  .category-tree-wrap {
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
+/* Bảng không vỡ layout */
+.categories-table {
+  min-width: 0;
+}
+:deep(.categories-table .n-data-table-base-table) {
+  min-width: 500px;
+}
 </style>
 

@@ -20,15 +20,8 @@ const youtubeVideos = ref<YoutubeVideo[]>([]);
 const loadingYoutube = ref(false);
 
 const formatPrice = (price?: number) => {
-  if (!price) return '0 đ';
+  if (price == null) return '0 đ';
   return new Intl.NumberFormat('vi-VN').format(price) + ' đ';
-};
-
-const calculateOriginalPrice = (salePrice: number, salePercentage: number): number => {
-  // Giá gốc = Giá sale / (1 - salePercentage/100)
-  const originalPrice = salePrice / (1 - salePercentage / 100);
-  // Làm tròn đến hàng nghìn
-  return Math.round(originalPrice / 1000) * 1000;
 };
 
 const loadBestSellers = async () => {
@@ -263,10 +256,6 @@ const submitApply = async () => {
             <div v-else class="absolute top-3 left-3 bg-[#b3000f] text-white px-3 py-1 text-sm font-semibold rounded">
               #{{ index + 1 }}
             </div>
-            <!-- % Sale góc trên bên phải -->
-            <div v-if="item.isOnSale && item.salePercentage" class="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 text-sm font-bold rounded">
-              -{{ item.salePercentage }}%
-            </div>
           </div>
 
           <div class="p-5 flex flex-col gap-3">
@@ -277,17 +266,13 @@ const submitApply = async () => {
           </div>
         </router-link>
         <div class="px-5 pb-4 pt-0 flex flex-col gap-1 border-t border-neutral-100">
-          <div v-if="item.isOnSale && item.salePercentage && item.minPrice" class="flex flex-col gap-1">
-            <!-- Giá gốc với đường gạch ngang -->
-            <span class="text-neutral-400 text-sm line-through">
-              {{ formatPrice(calculateOriginalPrice(item.minPrice, item.salePercentage)) }}
-            </span>
-            <!-- Giá sale -->
+          <template v-if="item.isOnSale && item.minSalePrice != null">
+            <span class="text-neutral-400 text-sm line-through"><s>{{ formatPrice(item.minPrice) }}</s></span>
+            <span class="text-red-600 font-bold text-lg">{{ formatPrice(item.minSalePrice) }}</span>
+          </template>
+          <template v-else>
             <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
-          </div>
-          <div v-else>
-            <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
-          </div>
+          </template>
         </div>
       </div>
     </div>
@@ -320,10 +305,6 @@ const submitApply = async () => {
             <div v-else class="absolute top-3 left-3 bg-black text-white px-3 py-1 text-sm font-semibold rounded">
               NEW
             </div>
-            <!-- % Sale góc trên bên phải -->
-            <div v-if="item.isOnSale && item.salePercentage" class="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 text-sm font-bold rounded">
-              -{{ item.salePercentage }}%
-            </div>
           </div>
           <div class="p-5 flex flex-col gap-3">
             <div v-if="item.brand" class="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
@@ -336,17 +317,13 @@ const submitApply = async () => {
           </div>
         </router-link>
         <div class="px-5 pb-4 pt-0 flex flex-col gap-1 border-t border-neutral-100">
-          <div v-if="item.isOnSale && item.salePercentage && item.minPrice" class="flex flex-col gap-1">
-            <!-- Giá gốc với đường gạch ngang -->
-            <span class="text-neutral-400 text-sm line-through">
-              {{ formatPrice(calculateOriginalPrice(item.minPrice, item.salePercentage)) }}
-            </span>
-            <!-- Giá sale -->
+          <template v-if="item.isOnSale && item.minSalePrice != null">
+            <span class="text-neutral-400 text-sm line-through"><s>{{ formatPrice(item.minPrice) }}</s></span>
+            <span class="text-red-600 font-bold text-lg">{{ formatPrice(item.minSalePrice) }}</span>
+          </template>
+          <template v-else>
             <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
-          </div>
-          <div v-else class="flex items-baseline gap-2">
-            <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
-          </div>
+          </template>
         </div>
       </div>
     </div>

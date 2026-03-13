@@ -43,8 +43,11 @@ const selectedVariant = computed(() =>
   product.value?.variants?.find(v => v.id === selectedVariantId.value)
 );
 
+/** Giá hiển thị chính (đã giảm nếu đang sale), dùng khi có 1 giá duy nhất */
 const displayedPrice = computed(() => {
-  if (selectedVariant.value) return selectedVariant.value.price;
+  const v = selectedVariant.value;
+  if (v && product.value?.isOnSale && v.salePrice != null) return v.salePrice;
+  if (v) return v.price;
   if (priceRange.value) return priceRange.value.min === priceRange.value.max ? priceRange.value.min : null;
   return null;
 });
@@ -105,15 +108,8 @@ const loadRelatedProducts = async (productId: number) => {
 };
 
 const formatPrice = (price?: number) => {
-  if (!price) return '0 đ';
+  if (price == null) return '0 đ';
   return new Intl.NumberFormat('vi-VN').format(price) + ' đ';
-};
-
-const calculateOriginalPrice = (salePrice: number, salePercentage: number): number => {
-  // Giá gốc = Giá sale / (1 - salePercentage/100)
-  const originalPrice = salePrice / (1 - salePercentage / 100);
-  // Làm tròn đến hàng nghìn
-  return Math.round(originalPrice / 1000) * 1000;
 };
 
 const handleSelectVariant = (id: number) => {
@@ -265,33 +261,32 @@ watch(
             </div>
           </div>
 
-          <!-- Price block -->
+          <!-- Price block: theo biến thể đã chọn (isOnSale + salePrice) hoặc theo product khi chưa chọn -->
           <div class="bg-[#fff5f1] border border-[#ffe0d2] rounded-md px-4 py-3 flex items-end gap-4">
             <div class="flex flex-col gap-1">
-              <!-- Giá gạch ngang (giá gốc) khi có sale -->
-              <div 
-                v-if="product.isOnSale && product.salePercentage && displayedPrice !== null"
-                class="text-sm text-neutral-400 line-through"
-              >
-                {{ calculateOriginalPrice(displayedPrice, product.salePercentage).toLocaleString('vi-VN') }}₫
-              </div>
-              <div 
-                v-else-if="product.isOnSale && product.salePercentage && priceRange"
-                class="text-sm text-neutral-400 line-through"
-              >
-                {{ calculateOriginalPrice(priceRange.max, product.salePercentage).toLocaleString('vi-VN') }}₫
-              </div>
-              <div class="text-3xl font-semibold text-[#ee4d2d]">
-                <template v-if="displayedPrice !== null">
-                  {{ displayedPrice.toLocaleString('vi-VN') }}₫
-                </template>
-                <template v-else-if="priceRange">
-                  {{ priceRange.min.toLocaleString('vi-VN') }}₫ - {{ priceRange.max.toLocaleString('vi-VN') }}₫
+              <template v-if="selectedVariant">
+                <!-- Đã chọn biến thể: isOnSale && salePrice hợp lệ → salePrice chính, price gạch bỏ -->
+                <template v-if="product.isOnSale && selectedVariant.salePrice != null">
+                  <div class="text-sm text-neutral-400 line-through"><s>{{ formatPrice(selectedVariant.price) }}</s></div>
+                  <div class="text-3xl font-bold text-[#ee4d2d]">{{ formatPrice(selectedVariant.salePrice) }}</div>
                 </template>
                 <template v-else>
-                  Liên hệ
+                  <div class="text-3xl font-semibold text-[#ee4d2d]">{{ formatPrice(selectedVariant.price) }}</div>
                 </template>
-              </div>
+              </template>
+              <template v-else>
+                <!-- Chưa chọn biến thể: dùng minPrice/minSalePrice hoặc khoảng giá -->
+                <template v-if="product.isOnSale && product.minSalePrice != null">
+                  <div class="text-sm text-neutral-400 line-through"><s>{{ formatPrice(product.minPrice) }}</s></div>
+                  <div class="text-3xl font-bold text-[#ee4d2d]">{{ formatPrice(product.minSalePrice) }}</div>
+                </template>
+                <template v-else>
+                  <div class="text-3xl font-semibold text-[#ee4d2d]">
+                    <template v-if="priceRange">{{ priceRange.min.toLocaleString('vi-VN') }}₫ - {{ priceRange.max.toLocaleString('vi-VN') }}₫</template>
+                    <template v-else>{{ formatPrice(product.minPrice) || 'Liên hệ' }}</template>
+                  </div>
+                </template>
+              </template>
             </div>
             <div v-if="selectedVariant" class="text-xs text-neutral-600 mb-1">
               <!-- <span>Biến thể:</span>
@@ -338,19 +333,13 @@ watch(
                     <span class="text-xs font-semibold line-clamp-1">
                       {{ getVariantName(variant) }}
                     </span>
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                      <!-- Giá gạch ngang (giá gốc) khi có sale -->
-                      <span 
-                        v-if="product.isOnSale && product.salePercentage"
-                        class="text-[10px] text-neutral-400 line-through"
-                      >
-                        {{ calculateOriginalPrice(variant.price, product.salePercentage).toLocaleString('vi-VN') }}₫
-                      </span>
-                      <!-- Giá sale -->
-                      <span class="text-[11px] text-neutral-500 line-clamp-1">
-                        {{ variant.price.toLocaleString('vi-VN') }}₫
-                      </span>
-                    </div>
+                    <template v-if="product.isOnSale && variant.salePrice != null">
+                      <span class="text-[10px] text-neutral-400 line-through"><s>{{ variant.price.toLocaleString('vi-VN') }}₫</s></span>
+                      <span class="text-[11px] font-semibold text-[#ee4d2d]">{{ variant.salePrice.toLocaleString('vi-VN') }}₫</span>
+                    </template>
+                    <template v-else>
+                      <span class="text-[11px] text-neutral-500">{{ variant.price.toLocaleString('vi-VN') }}₫</span>
+                    </template>
                   </div>
                 </button>
               </div>
@@ -462,9 +451,6 @@ watch(
               :alt="item.name"
               class="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-200"
             />
-            <div v-if="item.isOnSale && item.salePercentage" class="absolute top-3 left-3 bg-red-600 text-white px-2 py-1 text-xs font-semibold rounded">
-              -{{ item.salePercentage }}%
-            </div>
           </div>
 
           <div class="p-5 flex flex-col gap-3 flex-1">
@@ -479,8 +465,14 @@ watch(
               </div>
             </div>
           </div>
-          <div class="px-5 pb-4 pt-0 flex items-center justify-between border-t border-neutral-100">
-            <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+          <div class="px-5 pb-4 pt-0 flex flex-col gap-1 border-t border-neutral-100">
+            <template v-if="item.isOnSale && item.minSalePrice != null">
+              <span class="text-neutral-400 text-sm line-through"><s>{{ formatPrice(item.minPrice) }}</s></span>
+              <span class="text-red-600 font-bold text-lg">{{ formatPrice(item.minSalePrice) }}</span>
+            </template>
+            <template v-else>
+              <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+            </template>
           </div>
         </router-link>
       </div>
