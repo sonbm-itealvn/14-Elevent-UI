@@ -43,15 +43,6 @@ const selectedVariant = computed(() =>
   product.value?.variants?.find(v => v.id === selectedVariantId.value)
 );
 
-/** Giá hiển thị chính (đã giảm nếu đang sale), dùng khi có 1 giá duy nhất */
-const displayedPrice = computed(() => {
-  const v = selectedVariant.value;
-  if (v && product.value?.isOnSale && v.salePrice != null) return v.salePrice;
-  if (v) return v.price;
-  if (priceRange.value) return priceRange.value.min === priceRange.value.max ? priceRange.value.min : null;
-  return null;
-});
-
 const setMainImage = (url?: string, source: 'product' | 'variant' | null = null) => {
   if (url) {
     mainImage.value = url;

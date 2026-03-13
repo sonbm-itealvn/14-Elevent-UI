@@ -19,6 +19,8 @@ export interface Product {
   minPrice?: number;
   minSalePrice?: number;
   isOnSale?: boolean;
+  /** Phần trăm giảm giá (dùng trong admin khi API trả về hoặc cập nhật sale) */
+  salePercentage?: number;
   images?: ProductImage[];
   variants?: ProductVariant[];
   createdAt?: string;

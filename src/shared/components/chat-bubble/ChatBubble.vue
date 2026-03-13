@@ -313,7 +313,6 @@ onMounted(() => {
   window.addEventListener('resize', checkMobile);
 });
 
-import { onUnmounted } from 'vue';
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', checkMobile);
