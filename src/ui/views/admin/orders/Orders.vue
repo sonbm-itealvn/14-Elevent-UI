@@ -15,6 +15,8 @@ import {
   NSpace,
   NImage,
   NDatePicker,
+  NPagination,
+  NSpin,
   type SelectOption
 } from 'naive-ui';
 import { Eye, Check, X, Download } from '@vicons/tabler';
@@ -102,6 +104,11 @@ const getStatusTagType = (status: string) => {
     EXPIRED: 'warning',
   };
   return statusMap[status] || 'default';
+};
+
+const getStatusLabel = (status: string) => {
+  const opt = orderStatusSelectOptions.find(o => o.value === status);
+  return opt?.label ?? status;
 };
 
 const getPaymentStatusLabel = (status: string) => {
@@ -443,27 +450,30 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-6">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">Quản lý đơn hàng</h1>
-      <div class="flex gap-2 items-end">
-        <div class="flex gap-2">
+  <div class="p-3 sm:p-6 min-w-0">
+    <!-- Header: stack trên mobile, tránh cắt "Đến ngày" -->
+    <div class="flex flex-col gap-4 mb-4 sm:mb-6">
+      <h1 class="text-xl sm:text-3xl font-bold text-gray-800">Quản lý đơn hàng</h1>
+      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
+        <div class="grid grid-cols-2 gap-2 w-full sm:w-auto min-w-0">
           <NDatePicker
             v-model:value="exportStartDate"
             type="date"
             placeholder="Từ ngày"
             clearable
-            style="width: 150px"
+            class="w-full"
+            style="min-width: 0"
           />
           <NDatePicker
             v-model:value="exportEndDate"
             type="date"
             placeholder="Đến ngày"
             clearable
-            style="width: 150px"
+            class="w-full"
+            style="min-width: 0"
           />
         </div>
-        <NButton type="primary" :loading="exporting" @click="handleExportOrders">
+        <NButton type="primary" :loading="exporting" @click="handleExportOrders" class="w-full sm:w-auto flex-shrink-0">
           <template #icon>
             <NIcon><Download /></NIcon>
           </template>
@@ -473,13 +483,13 @@ onMounted(() => {
     </div>
 
     <!-- Filter -->
-    <div class="mb-6 flex gap-4 items-center">
+    <div class="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
       <NSelect
         v-model:value="statusFilter"
         :options="orderStatusOptions"
         placeholder="Lọc theo trạng thái"
         clearable
-        style="width: 250px"
+        class="w-full sm:w-[250px] min-w-0"
         @update:value="handleStatusFilterChange"
       />
       <div class="text-sm text-gray-500">
@@ -487,17 +497,76 @@ onMounted(() => {
       </div>
     </div>
 
-    <NDataTable
-      :columns="columns"
-      :data="orders"
-      :loading="loading"
-      :pagination="pagination"
-      @update:page="(page) => { pagination.page = page; loadOrders(); }"
-      @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadOrders(); }"
-      striped
-      bordered
-      :row-class-name="() => 'hover:bg-gray-50'"
-    />
+    <!-- Mobile: danh sách đơn dạng thẻ -->
+    <div class="block md:hidden space-y-3">
+      <div v-if="loading" class="flex justify-center py-8">
+        <n-spin />
+      </div>
+      <template v-else>
+        <div
+          v-for="row in orders"
+          :key="row.id"
+          class="order-card-mobile bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+        >
+          <div class="flex justify-between items-start gap-2 mb-2">
+            <span class="font-semibold text-gray-800">{{ row.orderCode || `#${row.id}` }}</span>
+            <NTag :type="getStatusTagType(row.status)" size="small">{{ getStatusLabel(row.status) }}</NTag>
+          </div>
+          <p class="text-sm text-gray-600 mb-1">{{ row.receiverName }}</p>
+          <div class="flex justify-between items-center flex-wrap gap-2 mb-3">
+            <span class="font-semibold text-red-600 text-sm">{{ formatCurrency(row.totalAmount) }}</span>
+            <span class="text-xs text-gray-500">{{ row.createdAt ? new Date(row.createdAt).toLocaleString('vi-VN') : '-' }}</span>
+          </div>
+          <div class="flex flex-wrap gap-2 mb-3">
+            <NTag size="small" :type="getStatusTagType(row.paymentStatus)">{{ getPaymentStatusLabel(row.paymentStatus) }}</NTag>
+            <span class="text-xs text-gray-500">{{ paymentMethodLabels[row.paymentMethod] || row.paymentMethod }}</span>
+          </div>
+          <div class="flex gap-2 pt-2 border-t border-gray-100">
+            <NButton size="tiny" quaternary @click="handleView(row)">
+              <template #icon><NIcon><Eye /></NIcon></template>
+              Xem
+            </NButton>
+            <NButton v-if="row.status === 'PENDING'" size="tiny" type="success" quaternary @click="handleApprove(row)">
+              <template #icon><NIcon><Check /></NIcon></template>
+              Duyệt
+            </NButton>
+            <NButton v-if="row.status !== 'COMPLETED' && row.status !== 'CANCELLED'" size="tiny" type="error" quaternary @click="openCancelModal(row)">
+              <template #icon><NIcon><X /></NIcon></template>
+              Hủy đơn
+            </NButton>
+          </div>
+        </div>
+        <p v-if="!loading && orders.length === 0" class="text-center text-gray-500 py-8">Chưa có đơn hàng</p>
+      </template>
+
+      <div v-if="!loading && pagination.total > 0" class="flex justify-center pt-4 flex-wrap">
+        <NPagination
+          v-model:page="pagination.page"
+          :page-size="pagination.pageSize"
+          :item-count="pagination.total"
+          :page-sizes="pagination.pageSizes"
+          show-size-picker
+          @update:page="(page) => { pagination.page = page; loadOrders(); }"
+          @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadOrders(); }"
+        />
+      </div>
+    </div>
+
+    <!-- Desktop: bảng -->
+    <div class="hidden md:block overflow-x-auto">
+      <NDataTable
+        :columns="columns"
+        :data="orders"
+        :loading="loading"
+        :pagination="pagination"
+        @update:page="(page) => { pagination.page = page; loadOrders(); }"
+        @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadOrders(); }"
+        striped
+        bordered
+        :row-class-name="() => 'hover:bg-gray-50'"
+        class="orders-data-table"
+      />
+    </div>
 
     <!-- Order Detail Modal -->
     <NModal v-model:show="showModal" title="Chi tiết đơn hàng" preset="card" style="width: 1200px; max-width: 95vw">

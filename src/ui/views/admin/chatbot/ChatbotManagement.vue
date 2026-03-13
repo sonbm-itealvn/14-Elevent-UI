@@ -111,29 +111,26 @@ const sessionColumns = [
     width: 80,
   },
   {
-    title: 'Conversation ID',
-    key: 'conversationId',
-    width: 260,
-  },
-  {
     title: 'Tiêu đề',
     key: 'title',
-    width: 260,
+    minWidth: 180,
+    ellipsis: { tooltip: true },
     render: (row: ChatUserSession) => row.title || 'Không có tiêu đề',
   },
   {
     title: 'Thời gian tạo',
     key: 'createdAt',
-    width: 200,
-    render: (row: ChatUserSession) => {
-      const value = row.createdAt;
-      const date = new Date(
-        value.toString().includes('T') ? value : value.toString().replace(' ', 'T')
-      );
-      return date.toLocaleString('vi-VN');
-    },
+    width: 180,
+    render: (row: ChatUserSession) => formatSessionDate(row.createdAt),
   },
 ];
+
+function formatSessionDate(value: string) {
+  const date = new Date(
+    value.toString().includes('T') ? value : value.toString().replace(' ', 'T')
+  );
+  return date.toLocaleString('vi-VN');
+}
 
 // Click cả dòng để mở chi tiết (thay vì nút riêng lẻ)
 const userRowProps = (row: ChatUser) => ({
@@ -231,19 +228,29 @@ const handleViewMessages = async (session: ChatUserSession) => {
   }
 };
 
+const formatLastChatTime = (row: ChatUser) => {
+  const value = row.lastChatTime || (row as any).lastChatTime;
+  if (!value) return '-';
+  const date = new Date(
+    value.toString().includes('T') ? value : value.toString().replace(' ', 'T')
+  );
+  return date.toLocaleString('vi-VN');
+};
+
 onMounted(() => {
   loadUsers();
 });
 </script>
 
 <template>
-  <div>
-    <div class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold">Quản lý Chatbot</h1>
-      <div class="flex gap-2">
+  <div class="p-3 sm:p-0 min-w-0">
+    <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-4">
+      <h1 class="text-xl sm:text-2xl font-bold">Quản lý Chatbot</h1>
+      <div class="grid grid-cols-1 sm:flex sm:flex-row gap-2 w-full sm:w-auto">
         <NButton
           type="primary"
           :loading="updatingProducts"
+          class="w-full sm:w-auto"
           @click="handleUpdateProducts"
         >
           <template #icon>
@@ -254,6 +261,7 @@ onMounted(() => {
         <NButton
           type="info"
           :loading="updatingDocuments"
+          class="w-full sm:w-auto"
           @click="handleUpdateDocuments"
         >
           <template #icon>
@@ -265,10 +273,10 @@ onMounted(() => {
     </div>
 
     <!-- Danh sách người dùng có lịch sử chat -->
-    <NCard class="mb-4">
-      <div class="flex justify-between items-center mb-3">
-        <h2 class="text-lg font-semibold">Người dùng có lịch sử chat</h2>
-        <NButton size="small" tertiary @click="handleRefresh">
+    <NCard class="mb-4 min-w-0 overflow-hidden">
+      <div class="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center mb-3">
+        <h2 class="text-base sm:text-lg font-semibold">Người dùng có lịch sử chat</h2>
+        <NButton size="small" tertiary class="self-start sm:self-center" @click="handleRefresh">
           <template #icon>
             <NIcon><Refresh /></NIcon>
           </template>
@@ -276,19 +284,66 @@ onMounted(() => {
         </NButton>
       </div>
       <p class="text-sm text-gray-500 mb-3">
-        Danh sách người dùng đã từng trò chuyện với chatbot. Nhấn
-        \"Xem sessions\" để xem các cuộc trò chuyện (session) của từng người dùng.
+        Danh sách người dùng đã từng trò chuyện với chatbot. Nhấn "Xem sessions" để xem các cuộc trò chuyện (session) của từng người dùng.
       </p>
 
-      <NDataTable
-        :columns="userColumns"
-        :data="users"
-        :loading="loading"
-        :pagination="tablePagination"
-        :row-props="userRowProps"
-        striped
-        bordered
-      />
+      <!-- Bảng: desktop -->
+      <div class="hidden md:block overflow-x-auto min-w-0">
+        <NDataTable
+          :columns="userColumns"
+          :data="users"
+          :loading="loading"
+          :pagination="tablePagination"
+          :row-props="userRowProps"
+          striped
+          bordered
+        />
+      </div>
+
+      <!-- Mobile: danh sách thẻ -->
+      <div class="block md:hidden space-y-3">
+        <div v-if="loading" class="text-center py-8 text-gray-500">Đang tải...</div>
+        <template v-else>
+          <p v-if="users.length === 0" class="text-center text-gray-500 py-8">Chưa có người dùng nào có lịch sử chat.</p>
+          <template v-else>
+            <div
+              v-for="user in users"
+              :key="user.id"
+              class="chat-user-card rounded-lg border p-4 shadow-sm bg-white active:opacity-90"
+              role="button"
+              tabindex="0"
+              @click="handleViewSessions(user)"
+              @keydown.enter="handleViewSessions(user)"
+            >
+            <div class="flex items-center gap-3 mb-2">
+              <img
+                v-if="(user as any).avatar"
+                :src="(user as any).avatar"
+                :alt="user.fullName || ''"
+                class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0"
+              />
+              <div
+                v-else
+                class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-gray-500 flex-shrink-0"
+              >
+                {{ (user.fullName || user.email || '?').charAt(0).toUpperCase() }}
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="font-medium text-gray-900 truncate">{{ user.fullName || '-' }}</div>
+                <div class="text-xs text-gray-500 truncate">{{ user.email || '-' }}</div>
+              </div>
+            </div>
+            <div class="text-sm text-gray-600 space-y-0.5 mb-3">
+              <div>Số cuộc trò chuyện: {{ user.sessionCount !== undefined ? user.sessionCount : '-' }}</div>
+              <div>Gần nhất: {{ formatLastChatTime(user) }}</div>
+            </div>
+            <NButton size="small" type="primary" block @click.stop="handleViewSessions(user)">
+              Xem sessions
+            </NButton>
+            </div>
+          </template>
+        </template>
+      </div>
     </NCard>
 
     <!-- Modal danh sách sessions theo user -->
@@ -300,21 +355,49 @@ onMounted(() => {
           ? `Sessions của ${selectedUser.fullName || selectedUser.email}`
           : 'Sessions của người dùng'
       "
-      style="width: 800px"
+      class="chatbot-modal-sessions"
     >
-      <div>
+      <div class="min-w-0">
         <p class="text-sm text-gray-500 mb-3">
           Danh sách các session chat của người dùng.
         </p>
-        <NDataTable
-          :columns="sessionColumns"
-          :data="userSessions"
-          :loading="loadingSessions"
-          :pagination="false"
-          :row-props="sessionRowProps"
-          striped
-          bordered
-        />
+        <!-- Desktop: bảng -->
+        <div class="hidden md:block overflow-x-auto">
+          <NDataTable
+            :columns="sessionColumns"
+            :data="userSessions"
+            :loading="loadingSessions"
+            :pagination="false"
+            :row-props="sessionRowProps"
+            striped
+            bordered
+          />
+        </div>
+        <!-- Mobile: danh sách thẻ -->
+        <div class="block md:hidden space-y-2">
+          <div v-if="loadingSessions" class="text-center py-6 text-gray-500">Đang tải...</div>
+          <template v-else>
+            <p v-if="userSessions.length === 0" class="text-center text-gray-500 py-6">Chưa có session nào.</p>
+            <template v-else>
+              <div
+                v-for="session in userSessions"
+                :key="session.id"
+                class="session-card rounded-lg border p-3 shadow-sm bg-white active:opacity-90"
+                role="button"
+                tabindex="0"
+                @click="handleViewMessages(session)"
+                @keydown.enter="handleViewMessages(session)"
+              >
+                <div class="font-medium text-gray-900 line-clamp-2 break-words">
+                  {{ session.title || 'Không có tiêu đề' }}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">
+                  {{ formatSessionDate(session.createdAt) }}
+                </div>
+              </div>
+            </template>
+          </template>
+        </div>
       </div>
     </NModal>
 
@@ -324,10 +407,10 @@ onMounted(() => {
       preset="dialog"
       :title="
         selectedSession
-          ? `Lịch sử chat - ${selectedSession.title || selectedSession.conversationId}`
+          ? `Lịch sử chat - ${selectedSession.title || 'Session'}`
           : 'Lịch sử chat của session'
       "
-      style="width: 900px"
+      class="chatbot-modal-messages"
     >
       <div>
         <p class="text-sm text-gray-500 mb-3">
@@ -377,6 +460,16 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.chatbot-modal-sessions :deep(.n-dialog) {
+  width: 100%;
+  max-width: 800px;
+  margin: 12px;
+}
+.chatbot-modal-messages :deep(.n-dialog) {
+  width: 100%;
+  max-width: 900px;
+  margin: 12px;
+}
 .session-chat-wrapper {
   max-height: 520px;
   overflow: hidden;
@@ -404,7 +497,12 @@ onMounted(() => {
 
 .session-message {
   display: flex;
-  max-width: 80%;
+  max-width: 90%;
+}
+@media (min-width: 640px) {
+  .session-message {
+    max-width: 80%;
+  }
 }
 
 .session-message-user {

@@ -20,6 +20,7 @@ import {
   NImage,
   NTag,
   NPagination,
+  NSpin,
   type UploadFileInfo,
 } from 'naive-ui';
 import { Plus, Pencil, Trash, Photo as ImageIcon, Eye, Search, X, Filter } from '@vicons/tabler';
@@ -1009,10 +1010,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
-    <div class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold">Quản lý sản phẩm</h1>
-      <NButton type="primary" @click="handleCreate">
+  <div class="min-w-0">
+    <!-- Header: stack trên mobile -->
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+      <h1 class="text-xl sm:text-2xl font-bold">Quản lý sản phẩm</h1>
+      <NButton type="primary" @click="handleCreate" class="w-full sm:w-auto flex-shrink-0">
         <template #icon>
           <NIcon><Plus /></NIcon>
         </template>
@@ -1163,19 +1165,77 @@ onMounted(() => {
       </div>
     </div>
 
-    <NDataTable
-      :columns="columns"
-      :data="products"
-      :loading="loading"
-      :pagination="false"
-      :row-class-name="(row: Product) => row.status === 'INACTIVE' ? 'inactive-row' : ''"
-      remote
-      striped
-      bordered
-    />
+    <!-- Mobile: danh sách dạng thẻ -->
+    <div class="block md:hidden space-y-3">
+      <div v-if="loading" class="flex justify-center py-8">
+        <n-spin />
+      </div>
+      <template v-else>
+        <div
+          v-for="row in products"
+          :key="row.id"
+          class="product-card-mobile bg-white border border-neutral-200 rounded-lg p-4 shadow-sm"
+          :class="{ 'opacity-60': row.status === 'INACTIVE' }"
+        >
+          <div class="flex justify-between items-start gap-2 mb-2">
+            <h3 class="font-semibold text-neutral-900 line-clamp-2 flex-1 min-w-0">{{ row.name }}</h3>
+            <NTag :type="row.isOnSale ? 'success' : 'default'" size="small">
+              {{ row.isOnSale ? `Sale ${row.salePercentage ?? 0}%` : 'Không sale' }}
+            </NTag>
+          </div>
+          <p class="text-xs text-neutral-500 truncate mb-1" :title="row.slug">{{ row.slug }}</p>
+          <p class="text-sm text-neutral-600 mb-2">{{ row.categoryName || row.category?.name || '—' }}</p>
+          <div class="flex justify-between items-center flex-wrap gap-2 mb-3">
+            <span class="font-semibold text-red-600 text-sm">
+              {{ new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.minPrice ?? 0) }}
+            </span>
+            <NSwitch
+              :value="row.status === 'ACTIVE'"
+              size="small"
+              @update:value="(v: boolean) => handleToggleStatus(row.id, v ? 'ACTIVE' : 'INACTIVE')"
+            />
+          </div>
+          <div class="flex gap-2 pt-2 border-t border-neutral-100">
+            <NButton size="tiny" quaternary @click="handleView(row)">
+              <template #icon><NIcon><Eye /></NIcon></template>
+              Xem
+            </NButton>
+            <NButton size="tiny" quaternary type="primary" @click="handleEdit(row)">
+              <template #icon><NIcon><Pencil /></NIcon></template>
+              Sửa
+            </NButton>
+            <NButton size="tiny" quaternary type="primary" @click="handleOpenSaleModal(row)">
+              Sale
+            </NButton>
+            <NPopconfirm @positive-click="() => handleDelete(row.id)">
+              <template #trigger>
+                <NButton size="tiny" quaternary type="error">Xóa</NButton>
+              </template>
+              Bạn có chắc muốn xóa sản phẩm này?
+            </NPopconfirm>
+          </div>
+        </div>
+        <p v-if="!loading && products.length === 0" class="text-center text-neutral-500 py-8">Chưa có sản phẩm</p>
+      </template>
+    </div>
+
+    <!-- Desktop: bảng -->
+    <div class="hidden md:block overflow-x-auto">
+      <NDataTable
+        :columns="columns"
+        :data="products"
+        :loading="loading"
+        :pagination="false"
+        :row-class-name="(row: Product) => row.status === 'INACTIVE' ? 'inactive-row' : ''"
+        remote
+        striped
+        bordered
+        class="products-data-table"
+      />
+    </div>
 
       <!-- Pagination riêng để hiển thị số trang -->
-      <div v-if="!loading && pagination.total > 0 && !isSearchMode" class="mt-4 flex justify-end">
+      <div v-if="!loading && pagination.total > 0 && !isSearchMode" class="mt-4 flex justify-center md:justify-end flex-wrap">
         <NPagination
           v-model:page="pagination.page"
           :page-size="pagination.pageSize"
@@ -1691,6 +1751,17 @@ onMounted(() => {
 :deep(.inactive-row:hover) {
   background-color: rgba(0, 0, 0, 0.04) !important;
   opacity: 0.8;
+}
+
+.product-card-mobile .line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.products-data-table {
+  min-width: 0;
 }
 </style>
 

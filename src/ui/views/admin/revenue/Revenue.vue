@@ -2,8 +2,6 @@
 import { ref, onMounted, h, computed } from 'vue';
 import {
   NCard,
-  NGrid,
-  NGridItem,
   NStatistic,
   NDataTable,
   NTag,
@@ -444,30 +442,33 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-6">
-    <div class="mb-6 flex justify-between items-start">
+  <div class="p-3 sm:p-6 min-w-0">
+    <!-- Header: stack trên mobile -->
+    <div class="mb-4 sm:mb-6 flex flex-col gap-4">
       <div>
-        <h1 class="text-3xl font-bold text-gray-800">Báo cáo doanh thu</h1>
-        <p class="text-gray-600 mt-2">Thống kê và phân tích doanh thu hệ thống</p>
+        <h1 class="text-xl sm:text-3xl font-bold text-gray-800">Báo cáo doanh thu</h1>
+        <p class="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Thống kê và phân tích doanh thu hệ thống</p>
       </div>
-      <div class="flex gap-2 items-end">
-        <div class="flex gap-2">
+      <div class="flex flex-col sm:flex-row sm:justify-end gap-3">
+        <div class="grid grid-cols-2 gap-2 w-full sm:w-auto min-w-0">
           <NDatePicker
             v-model:value="startDate"
             type="date"
             placeholder="Từ ngày"
             clearable
-            style="width: 150px"
+            class="w-full"
+            style="min-width: 0"
           />
           <NDatePicker
             v-model:value="endDate"
             type="date"
             placeholder="Đến ngày"
             clearable
-            style="width: 150px"
+            class="w-full"
+            style="min-width: 0"
           />
         </div>
-        <NButton type="primary" :loading="exporting" @click="handleExportRevenue">
+        <NButton type="primary" :loading="exporting" @click="handleExportRevenue" class="w-full sm:w-auto flex-shrink-0">
           <template #icon>
             <NIcon><Download /></NIcon>
           </template>
@@ -477,104 +478,103 @@ onMounted(() => {
     </div>
 
     <NSpin :show="loading">
-      <div v-if="stats" class="space-y-6">
-        <!-- Tổng quan -->
-        <NCard title="Tổng quan" class="mb-6">
-          <NGrid :cols="4" :x-gap="12" :y-gap="12">
-            <NGridItem>
+      <div v-if="stats" class="space-y-4 sm:space-y-6">
+        <!-- Tổng quan: 2 cột mobile, 4 cột desktop; chart full width trên mobile -->
+        <NCard title="Tổng quan" class="revenue-overview-card">
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="revenue-stat-item min-w-0">
               <NStatistic
                 label="Tổng doanh thu"
                 :value="formatCurrency(stats.overall.totalRevenue)"
               />
-            </NGridItem>
-            <NGridItem>
+            </div>
+            <div class="revenue-stat-item min-w-0">
               <NStatistic
                 label="Tổng đơn hàng"
                 :value="stats.overall.totalOrders"
               />
-            </NGridItem>
-            <NGridItem>
+            </div>
+            <div class="revenue-stat-item min-w-0 col-span-2 lg:col-span-1">
               <NStatistic
-                label="Giá trị đơn trung bình"
+                label="Giá trị đơn TB"
                 :value="formatCurrency(stats.overall.averageOrderValue)"
               />
-            </NGridItem>
-            <NGridItem>
-              <!-- Order Status Pie Chart -->
+            </div>
+            <div class="revenue-chart-wrap col-span-2 lg:col-span-1 min-w-0">
               <div class="text-center">
                 <div class="text-sm text-gray-500 mb-2">Trạng thái đơn hàng</div>
-                <v-chart 
-                  :option="orderStatusChartOption" 
-                  style="height: 150px; width: 100%"
+                <v-chart
+                  :option="orderStatusChartOption"
+                  class="revenue-pie-chart"
                   autoresize
                 />
               </div>
-            </NGridItem>
-          </NGrid>
+            </div>
+          </div>
         </NCard>
 
-        <!-- Doanh thu theo thời gian -->
-        <NCard title="Doanh thu theo thời gian" class="mb-6">
-          <NGrid :cols="4" :x-gap="12" :y-gap="12">
-            <NGridItem>
+        <!-- Doanh thu theo thời gian: 2 cột mobile, 4 cột desktop -->
+        <NCard title="Doanh thu theo thời gian" class="mb-4 sm:mb-6">
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="min-w-0">
               <NStatistic
                 label="Doanh thu hôm nay"
                 :value="formatCurrency(stats.revenue.todayRevenue)"
               />
-            </NGridItem>
-            <NGridItem>
+            </div>
+            <div class="min-w-0">
               <NStatistic
                 label="Doanh thu tuần này"
                 :value="formatCurrency(stats.revenue.thisWeekRevenue)"
               />
-            </NGridItem>
-            <NGridItem>
+            </div>
+            <div class="min-w-0">
               <NStatistic
                 label="Doanh thu tháng này"
                 :value="formatCurrency(stats.revenue.thisMonthRevenue)"
               />
-            </NGridItem>
-            <NGridItem>
+            </div>
+            <div class="min-w-0">
               <NStatistic
                 label="Doanh thu năm này"
                 :value="formatCurrency(stats.revenue.thisYearRevenue)"
               />
-            </NGridItem>
-          </NGrid>
+            </div>
+          </div>
         </NCard>
 
         <!-- Chart: Doanh thu 7 ngày gần đây -->
-        <NCard title="📊 Biểu đồ doanh thu 7 ngày gần đây" class="mb-6">
-          <v-chart 
-            :option="dailyRevenueChartOption" 
-            style="height: 350px; width: 100%"
+        <NCard title="📊 Biểu đồ doanh thu 7 ngày gần đây" class="mb-4 sm:mb-6 min-w-0 overflow-hidden">
+          <v-chart
+            :option="dailyRevenueChartOption"
+            class="revenue-chart"
             autoresize
           />
         </NCard>
 
         <!-- Chart: Doanh thu 12 tháng gần đây -->
-        <NCard title="📈 Biểu đồ doanh thu 12 tháng gần đây" class="mb-6">
-          <v-chart 
-            :option="monthlyRevenueChartOption" 
-            style="height: 400px; width: 100%"
+        <NCard title="📈 Biểu đồ doanh thu 12 tháng gần đây" class="mb-4 sm:mb-6 min-w-0 overflow-hidden">
+          <v-chart
+            :option="monthlyRevenueChartOption"
+            class="revenue-chart-tall"
             autoresize
           />
         </NCard>
 
         <!-- Chart: Sản phẩm bán chạy -->
-        <NCard title="🏆 Top 5 sản phẩm bán chạy" class="mb-6">
-          <v-chart 
-            :option="topProductsChartOption" 
-            style="height: 350px; width: 100%"
+        <NCard title="🏆 Top 5 sản phẩm bán chạy" class="mb-4 sm:mb-6 min-w-0 overflow-hidden">
+          <v-chart
+            :option="topProductsChartOption"
+            class="revenue-chart"
             autoresize
           />
         </NCard>
 
-        <!-- Bảng dữ liệu chi tiết -->
-        <NGrid :cols="2" :x-gap="12" :y-gap="12">
+        <!-- Bảng dữ liệu chi tiết: 1 cột mobile, 2 cột desktop -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <!-- Doanh thu 7 ngày gần đây - Table -->
-          <NGridItem>
-            <NCard title="Chi tiết doanh thu 7 ngày" class="h-full">
+          <NCard title="Chi tiết doanh thu 7 ngày" class="h-full overflow-hidden">
+            <div class="overflow-x-auto min-w-0">
               <NDataTable
                 :columns="[
                   {
@@ -602,12 +602,12 @@ onMounted(() => {
                 size="small"
                 striped
               />
-            </NCard>
-          </NGridItem>
+            </div>
+          </NCard>
 
           <!-- Sản phẩm bán chạy - Table -->
-          <NGridItem>
-            <NCard title="Bảng sản phẩm bán chạy" class="h-full">
+          <NCard title="Bảng sản phẩm bán chạy" class="h-full overflow-hidden">
+            <div class="overflow-x-auto min-w-0">
               <NDataTable
                 :columns="[
                   {
@@ -634,13 +634,14 @@ onMounted(() => {
                 size="small"
                 striped
               />
-            </NCard>
-          </NGridItem>
-        </NGrid>
+            </div>
+          </NCard>
+        </div>
 
         <!-- Đơn hàng gần đây -->
-        <NCard title="Đơn hàng gần đây" class="mb-6 mt-6">
-          <NDataTable
+        <NCard title="Đơn hàng gần đây" class="mb-6 mt-6 overflow-hidden">
+          <div class="overflow-x-auto min-w-0">
+            <NDataTable
             :columns="[
               {
                 title: 'ID đơn hàng',
@@ -678,6 +679,7 @@ onMounted(() => {
             :bordered="true"
             striped
           />
+          </div>
         </NCard>
       </div>
     </NSpin>
@@ -685,4 +687,38 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.revenue-overview-card :deep(.n-card__content) {
+  min-width: 0;
+}
+.revenue-stat-item :deep(.n-statistic__value) {
+  word-break: break-word;
+}
+.revenue-pie-chart {
+  height: 160px;
+  width: 100%;
+  min-width: 0;
+}
+.revenue-chart-wrap {
+  contain: layout;
+}
+.revenue-chart {
+  height: 300px;
+  width: 100%;
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .revenue-chart {
+    height: 350px;
+  }
+}
+.revenue-chart-tall {
+  height: 300px;
+  width: 100%;
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .revenue-chart-tall {
+    height: 400px;
+  }
+}
 </style>

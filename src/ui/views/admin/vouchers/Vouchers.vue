@@ -18,6 +18,7 @@ import {
   NCard,
   NStatistic,
   NDivider,
+  NPagination,
 } from 'naive-ui';
 import { Plus, Pencil, Trash, Eye, Calendar } from '@vicons/tabler';
 import VoucherService from '@/core/services/api/voucher.service';
@@ -426,6 +427,12 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleString('vi-VN');
 };
 
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+
+const formatDateShort = (dateString: string) =>
+  new Date(dateString).toLocaleDateString('vi-VN');
+
 // Format number with thousand separator
 const formatNumber = (value: number | null | undefined): string => {
   if (value === null || value === undefined || isNaN(value) || value === 0) return '';
@@ -457,10 +464,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
-    <div class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold">Quản lý voucher</h1>
-      <NButton type="primary" @click="handleCreate">
+  <div class="p-3 sm:p-0 min-w-0">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+      <h1 class="text-xl sm:text-2xl font-bold">Quản lý voucher</h1>
+      <NButton type="primary" class="w-full sm:w-auto" @click="handleCreate">
         <template #icon>
           <NIcon><Plus /></NIcon>
         </template>
@@ -470,11 +477,12 @@ onMounted(() => {
 
     <!-- Filters -->
     <NCard class="mb-4">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <NInput
           v-model:value="filters.code"
           placeholder="Tìm kiếm mã voucher"
           clearable
+          class="w-full min-w-0"
           @keyup.enter="handleFilter"
         />
         <NSelect
@@ -485,37 +493,106 @@ onMounted(() => {
             { label: 'Đang hoạt động', value: true },
             { label: 'Đã tắt', value: false },
           ] as any"
+          class="w-full min-w-0"
         />
         <NDatePicker
           v-model:value="filters.startDateFrom"
           type="datetime"
           placeholder="Ngày bắt đầu từ"
           clearable
+          class="w-full"
+          style="width: 100%; min-width: 0"
         />
         <NDatePicker
           v-model:value="filters.startDateTo"
           type="datetime"
           placeholder="Ngày bắt đầu đến"
           clearable
+          class="w-full"
+          style="width: 100%; min-width: 0"
         />
       </div>
-      <div class="flex gap-2 mt-4">
+      <div class="flex gap-2 mt-4 flex-wrap">
         <NButton type="primary" @click="handleFilter">Lọc</NButton>
         <NButton @click="handleResetFilter">Đặt lại</NButton>
       </div>
     </NCard>
 
-    <NDataTable
-      :columns="columns"
-      :data="vouchers"
-      :loading="loading"
-      :pagination="pagination"
-      :row-class-name="(row: Voucher) => !row.active ? 'inactive-row' : ''"
-      @update:page="(page) => { pagination.page = page; loadVouchers(); }"
-      @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; loadVouchers(); }"
-      striped
-      bordered
-    />
+    <!-- Table: desktop only -->
+    <div class="hidden md:block overflow-hidden min-w-0">
+      <NDataTable
+        :columns="columns"
+        :data="vouchers"
+        :loading="loading"
+        :pagination="pagination"
+        :row-class-name="(row: Voucher) => !row.active ? 'inactive-row' : ''"
+        @update:page="(page: number) => { pagination.page = page; loadVouchers(); }"
+        @update:page-size="(size: number) => { pagination.pageSize = size; pagination.page = 1; loadVouchers(); }"
+        striped
+        bordered
+      />
+    </div>
+
+    <!-- Mobile: card list -->
+    <div class="block md:hidden space-y-3">
+      <div v-if="loading" class="text-center py-8 text-gray-500">Đang tải...</div>
+      <template v-else>
+        <p v-if="vouchers.length === 0" class="text-center text-gray-500 py-8">Chưa có voucher</p>
+        <template v-else>
+          <div
+            v-for="row in vouchers"
+            :key="row.id"
+            class="voucher-mobile-card rounded-lg border p-4 shadow-sm"
+            :class="{ 'opacity-70 bg-gray-50': !row.active }"
+          >
+          <div class="flex justify-between items-start gap-2 mb-2">
+            <span class="font-mono font-semibold text-base truncate">{{ row.code }}</span>
+            <NTag :type="row.discountType === 'PERCENT' ? 'info' : 'success'" size="small">
+              {{ row.discountType === 'PERCENT' ? `${row.discountValue}%` : formatCurrency(row.discountValue) }}
+            </NTag>
+          </div>
+          <div class="text-sm text-gray-600 space-y-1 mb-3">
+            <div>Đơn tối thiểu: {{ row.minOrder ? formatCurrency(row.minOrder) : '—' }}</div>
+            <div>Số lượng: {{ row.remainingQuantity ?? row.quantity }} / {{ row.quantity }}</div>
+            <div>{{ formatDateShort(row.startDate) }} → {{ formatDateShort(row.endDate) }}</div>
+          </div>
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <NSwitch
+              :value="row.active"
+              @update:value="(v: boolean) => handleToggleActive(row.id, v)"
+            />
+            <div class="flex gap-1">
+              <NButton size="small" quaternary circle @click="handleViewDetail(row)">
+                <template #icon><NIcon><Eye /></NIcon></template>
+              </NButton>
+              <NButton size="small" quaternary circle @click="handleEdit(row)">
+                <template #icon><NIcon><Pencil /></NIcon></template>
+              </NButton>
+              <NPopconfirm @positive-click="handleDelete(row.id)">
+                <template #trigger>
+                  <NButton size="small" quaternary circle type="error">
+                    <template #icon><NIcon><Trash /></NIcon></template>
+                  </NButton>
+                </template>
+                Bạn có chắc muốn xóa voucher này?
+              </NPopconfirm>
+            </div>
+          </div>
+          </div>
+          <div v-if="pagination.total > 0" class="flex justify-center pt-4 flex-wrap">
+            <NPagination
+              v-model:page="pagination.page"
+              :page-size="pagination.pageSize"
+              :item-count="pagination.total"
+              :page-sizes="pagination.pageSizes"
+              show-size-picker
+              @update:page="(p: number) => { pagination.page = p; loadVouchers(); }"
+              @update:page-size="(s: number) => { pagination.pageSize = s; pagination.page = 1; loadVouchers(); }"
+            />
+          </div>
+        </template>
+      </template>
+    </div>
 
     <!-- Create/Edit Modal -->
     <NModal
