@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick, computed } from 'vue';
 import PublicProductService from '@/core/services/api/public-product.service';
 import type { PublicProduct } from '@/core/services/api/public-product.service';
 import { useMessage } from 'naive-ui';
@@ -14,6 +14,8 @@ const heroImage =
 const bestSellers = ref<PublicProduct[]>([]);
 const promotionProducts = ref<PublicProduct[]>([]);
 const loading = ref(false);
+const bestSellerSliderRef = ref<HTMLElement | null>(null);
+const shouldCenterBestSellers = computed(() => bestSellers.value.length > 0 && bestSellers.value.length <= 4);
 
 // YouTube latest videos
 const youtubeVideos = ref<YoutubeVideo[]>([]);
@@ -27,14 +29,26 @@ const formatPrice = (price?: number) => {
 const loadBestSellers = async () => {
   try {
     loading.value = true;
-    const products = await PublicProductService.getTopSelling(4);
-    bestSellers.value = products;
+    const products = await PublicProductService.getTopSelling(15);
+    bestSellers.value = Array.isArray(products) ? products.slice(0, 15) : [];
   } catch (error: any) {
     console.error('Error loading best sellers:', error);
     message.error('Lỗi khi tải sản phẩm bán chạy');
   } finally {
     loading.value = false;
   }
+};
+
+const slideBestSeller = async (direction: 'prev' | 'next') => {
+  if (shouldCenterBestSellers.value) return;
+  await nextTick();
+  const slider = bestSellerSliderRef.value;
+  if (!slider) return;
+  const step = Math.max(slider.clientWidth * 0.8, 260);
+  slider.scrollBy({
+    left: direction === 'next' ? step : -step,
+    behavior: 'smooth',
+  });
 };
 
 const loadPromotionProducts = async () => {
@@ -239,40 +253,61 @@ const submitApply = async () => {
     <div v-if="loading" class="max-w-6xl mx-auto text-center py-10">
       <p class="text-neutral-500">Đang tải...</p>
     </div>
-    <div v-else-if="bestSellers.length > 0" class="max-w-6xl mx-auto grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+    <div v-else-if="bestSellers.length > 0" class="max-w-6xl mx-auto">
+      <div v-if="!shouldCenterBestSellers" class="flex justify-end gap-2 mb-4">
+        <button
+          type="button"
+          class="slider-nav-btn"
+          @click="slideBestSeller('prev')"
+        >
+          ←
+        </button>
+        <button
+          type="button"
+          class="slider-nav-btn"
+          @click="slideBestSeller('next')"
+        >
+          →
+        </button>
+      </div>
       <div
-        v-for="(item, index) in bestSellers"
-        :key="item.id"
-        class="bg-white shadow-md hover:shadow-lg transition-shadow duration-200 border border-neutral-200 flex flex-col rounded-md overflow-hidden"
+        ref="bestSellerSliderRef"
+        class="best-seller-slider"
+        :class="{ 'best-seller-slider--centered': shouldCenterBestSellers }"
       >
-        <router-link :to="{ name: 'ProductDetail', params: { slug: item.slug } }" class="block flex-1">
-          <div class="relative bg-neutral-50 flex items-center justify-center" style="height: 200px;">
-            <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="max-w-full max-h-full object-contain" />
-            <!-- Badge góc trên bên trái -->
-            <div v-if="item.isOnSale" class="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-sm font-semibold rounded flex items-center gap-1">
-              <Bolt class="h-4 w-4" />
-              FLASH SALE
+        <div
+          v-for="(item, index) in bestSellers"
+          :key="item.id"
+          class="best-seller-slide bg-white shadow-md hover:shadow-lg transition-shadow duration-200 border border-neutral-200 flex flex-col rounded-md overflow-hidden"
+        >
+          <router-link :to="{ name: 'ProductDetail', params: { slug: item.slug } }" class="block flex-1">
+            <div class="relative bg-neutral-50 flex items-center justify-center" style="height: 200px;">
+              <img :src="item.thumbnail || 'https://via.placeholder.com/400'" :alt="item.name" class="max-w-full max-h-full object-contain" />
+              <div v-if="item.isOnSale" class="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-sm font-semibold rounded flex items-center gap-1">
+                <Bolt class="h-4 w-4" />
+                FLASH SALE
+              </div>
+              <div v-else class="absolute top-3 left-3 bg-[#b3000f] text-white px-3 py-1 text-sm font-semibold rounded">
+                #{{ index + 1 }}
+              </div>
             </div>
-            <div v-else class="absolute top-3 left-3 bg-[#b3000f] text-white px-3 py-1 text-sm font-semibold rounded">
-              #{{ index + 1 }}
-            </div>
-          </div>
 
-          <div class="p-5 flex flex-col gap-3">
-            <div>
-              <h3 class="text-lg font-semibold text-neutral-900 uppercase tracking-wide line-clamp-2">{{ item.name }}</h3>
-              <p v-if="item.brand" class="text-sm text-neutral-500">{{ item.brand }}</p>
+            <div class="p-5 flex flex-col gap-3">
+              <div>
+                <h3 class="text-lg font-semibold text-neutral-900 uppercase tracking-wide line-clamp-2">{{ item.name }}</h3>
+                <p v-if="item.brand" class="text-sm text-neutral-500">{{ item.brand }}</p>
+              </div>
             </div>
+          </router-link>
+          <div class="px-5 pb-4 pt-0 flex flex-col gap-1 border-t border-neutral-100">
+            <template v-if="item.isOnSale && item.minSalePrice != null">
+              <span class="text-neutral-400 text-sm line-through"><s>{{ formatPrice(item.minPrice) }}</s></span>
+              <span class="text-red-600 font-bold text-lg">{{ formatPrice(item.minSalePrice) }}</span>
+            </template>
+            <template v-else>
+              <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
+            </template>
           </div>
-        </router-link>
-        <div class="px-5 pb-4 pt-0 flex flex-col gap-1 border-t border-neutral-100">
-          <template v-if="item.isOnSale && item.minSalePrice != null">
-            <span class="text-neutral-400 text-sm line-through"><s>{{ formatPrice(item.minPrice) }}</s></span>
-            <span class="text-red-600 font-bold text-lg">{{ formatPrice(item.minSalePrice) }}</span>
-          </template>
-          <template v-else>
-            <span class="text-red-600 font-semibold text-lg">{{ formatPrice(item.minPrice) }}</span>
-          </template>
         </div>
       </div>
     </div>
@@ -466,3 +501,41 @@ const submitApply = async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.best-seller-slider {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding-bottom: 0.5rem;
+}
+
+.best-seller-slider--centered {
+  justify-content: center;
+  overflow-x: hidden;
+}
+
+.best-seller-slide {
+  min-width: 260px;
+  width: calc((100% - 1.25rem) / 2);
+  scroll-snap-align: start;
+}
+
+@media (min-width: 1024px) {
+  .best-seller-slide {
+    width: calc((100% - 3.75rem) / 4);
+  }
+}
+
+.slider-nav-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.375rem;
+  background: #fff;
+  color: #111827;
+  font-weight: 700;
+}
+</style>

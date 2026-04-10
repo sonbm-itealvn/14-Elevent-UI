@@ -240,6 +240,7 @@
       v-model:show="showCheckoutModal"
       title="Thông tin giao hàng"
       preset="card"
+      class="checkout-modal"
       style="width: 600px"
       :mask-closable="!submittingCheckout"
       :close-on-esc="!submittingCheckout"
@@ -359,11 +360,37 @@
           </div>
         </div>
 
-        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-          <p class="text-sm text-blue-800">
-            <strong>Phương thức thanh toán:</strong> Thanh toán khi nhận hàng
-            (COD)
+        <NFormItem label="Phương thức thanh toán" required :show-feedback="false">
+          <NRadioGroup v-model:value="checkoutForm.paymentMethod" :disabled="submittingCheckout">
+            <div class="flex flex-col gap-2">
+              <NRadio value="COD">Thanh toán khi nhận hàng (COD)</NRadio>
+              <NRadio value="BANKING">Chuyển khoản ngân hàng (QR)</NRadio>
+            </div>
+          </NRadioGroup>
+        </NFormItem>
+
+        <div
+          v-if="checkoutForm.paymentMethod === 'BANKING'"
+          class="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg"
+        >
+          <p class="text-sm text-blue-900 font-semibold mb-3">
+            Quét mã QR để chuyển khoản:
           </p>
+          <div class="flex flex-col items-center gap-3">
+            <img
+              :src="bankTransferInfo.qrImageUrl"
+              alt="QR chuyển khoản"
+              class="w-56 h-56 object-contain rounded bg-white p-2 border border-blue-100"
+            />
+            <div class="text-sm text-blue-900 text-center leading-6">
+              <div><strong>Ngân hàng:</strong> {{ bankTransferInfo.bankName }}</div>
+              <div><strong>Số tài khoản:</strong> {{ bankTransferInfo.accountNumber }}</div>
+              <div><strong>Chủ tài khoản:</strong> {{ bankTransferInfo.accountName }}</div>
+            </div>
+            <p class="text-xs text-blue-700 text-center">
+              Vui lòng chuyển đúng số tiền và ghi nội dung theo hướng dẫn CSKH (nếu có).
+            </p>
+          </div>
         </div>
       </NForm>
 
@@ -397,6 +424,8 @@ import {
   NButton,
   NInput,
   NSelect,
+  NRadioGroup,
+  NRadio,
   NModal,
   NForm,
   NFormItem,
@@ -519,9 +548,19 @@ const checkoutForm = ref({
   shippingWard: "",
   shippingDistrict: "",
   shippingCity: "",
+  paymentMethod: "COD" as "COD" | "BANKING",
   note: "",
 });
 const submittingCheckout = ref(false);
+
+const bankTransferInfo = {
+  accountName: "DONG MINH TUAN",
+  accountNumber: "9007041145284",
+  bankName: "Timo Digital Bank by BVBank",
+  // Có thể thay bằng ảnh QR nội bộ nếu muốn host trong dự án.
+  qrImageUrl:
+    "https://img.vietqr.io/image/BVB-9007041145284-compact2.png?accountName=DONG%20MINH%20TUAN",
+};
 
 // Address data
 const provinces = ref<Province[]>([]);
@@ -622,6 +661,7 @@ const openCheckoutModal = async () => {
     shippingWard: "",
     shippingDistrict: "",
     shippingCity: "",
+    paymentMethod: "COD",
     note: "",
   };
   // Reset address selections
@@ -719,7 +759,7 @@ const handleCheckout = async () => {
       shippingWard: checkoutForm.value.shippingWard.trim() || undefined,
       shippingDistrict: checkoutForm.value.shippingDistrict.trim() || undefined,
       shippingCity: checkoutForm.value.shippingCity.trim(),
-      paymentMethod: "COD" as const,
+      paymentMethod: checkoutForm.value.paymentMethod,
       expectedTotal: checkoutPreview.value?.total,
       note: checkoutForm.value.note.trim() || undefined,
     };
@@ -790,6 +830,11 @@ const handleCheckout = async () => {
 
 .cart-items {
   overflow: hidden;
+}
+
+/* Dark theme: đảm bảo tiêu đề modal checkout đủ tương phản */
+:global(html.dark) .checkout-modal :deep(.n-card-header__main) {
+  color: #f3f4f6 !important;
 }
 </style>
 

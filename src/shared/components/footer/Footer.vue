@@ -136,7 +136,7 @@ onMounted(() => {
             </div>
             <div class="flex items-center gap-2">
               <MapPin class="h-5 w-5 text-[#b3000f]" />
-              <span>Số 13, Bùi Ngọc Dương, Bạch Mai, Hà Nội, Việt Nam</span>
+              <span>160 Cổ Linh, Thạch Bàn, Long Biên, Hà Nội</span>
             </div>
           </div>
           <div class="flex items-center gap-3 pt-2">

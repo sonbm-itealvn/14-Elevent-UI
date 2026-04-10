@@ -33,14 +33,14 @@ const contactInfo = [
     icon: MapPin,
     title: 'Địa Chỉ',
     jpTitle: '住所',
-    content: 'Số 13, Bùi Ngọc Dương, Bạch Mai',
+    content: '160 Cổ Linh, Thạch Bàn, Long Biên',
     subContent: 'Hà Nội, Việt Nam',
   },
 ];
 
 // Google Maps embed cho địa chỉ cửa hàng
 const mapEmbedUrl =
-  'https://www.google.com/maps?q=13%20B%C3%B9i%20Ng%E1%BB%8Dc%20D%C6%B0%C6%A1ng,%20B%E1%BA%A1ch%20Mai,%20H%C3%A0%20N%E1%BB%99i&output=embed';
+  'https://www.google.com/maps?q=160%20Cổ%20Linh,%20Thạch%20Bàn,%20Long%20Biên,%20Hà%20Nội&output=embed';
 
 const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
